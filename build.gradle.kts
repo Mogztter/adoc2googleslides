@@ -13,7 +13,7 @@ dependencies {
 }
 
 application {
-    mainClassName = "SlidesQuickstart"
+    mainClassName = "Slides"
 }
 
 java {
