@@ -160,6 +160,13 @@ ASCII art to represent nodes and relationships
         widthDimension.unit = "EMU"
         size.width = widthDimension
         pageElementProperties.setSize(size)
+        val transform = AffineTransform()
+        transform.scaleX = 1.0
+        transform.scaleY = 1.0
+        transform.translateX = box.minX
+        transform.translateY = box.minY
+        transform.unit = "EMU"
+        pageElementProperties.transform = transform
         createImageRequest.elementProperties = pageElementProperties
         createImageRequest.url = "https://raw.githubusercontent.com/neo4j-contrib/training-v3/58eef39b7199b58bd7d5679c348c0871a375b9f5/modules/demo-intro/images/Properties.png"
         request.createImage = createImageRequest
