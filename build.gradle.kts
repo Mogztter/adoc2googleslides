@@ -10,6 +10,7 @@ dependencies {
     implementation("com.google.api-client:google-api-client:1.23.0")
     implementation("com.google.oauth-client:google-oauth-client-jetty:1.23.0")
     implementation("com.google.apis:google-api-services-slides:v1-rev294-1.23.0")
+    implementation("org.asciidoctor:asciidoctorj:2.2.0")
 }
 
 application {
