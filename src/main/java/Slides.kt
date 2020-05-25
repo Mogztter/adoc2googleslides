@@ -7,6 +7,7 @@ import java.util.*
 
 fun main() {
   val asciidoctorPresentation = AsciidoctorSlides.generateFromAsciiDoc()
+  println(asciidoctorPresentation)
   SlidesGenerator.run(asciidoctorPresentation)
 }
 
@@ -142,7 +143,7 @@ object SlidesGenerator {
     presentations.batchUpdate(presentation.presentationId, batchUpdatePresentationRequest).execute()
   }
 
-  private fun appendCreateImageRequests(presentation: Presentation, slide: Page, placeholder: PageElement, requests: MutableList<Request>) {
+  private fun appendCreateImageRequests(url: String, presentation: Presentation, slide: Page, placeholder: PageElement, requests: MutableList<Request>) {
     val box = GenericLayout.getBodyBoundingBox(presentation, placeholder)
     val request = Request()
     val createImageRequest = CreateImageRequest()
@@ -169,7 +170,7 @@ object SlidesGenerator {
     transform.unit = "EMU"
     pageElementProperties.transform = transform
     createImageRequest.elementProperties = pageElementProperties
-    createImageRequest.url = "https://raw.githubusercontent.com/neo4j-contrib/training-v3/58eef39b7199b58bd7d5679c348c0871a375b9f5/modules/demo-intro/images/Properties.png"
+    createImageRequest.url = url
     request.createImage = createImageRequest
     requests.add(request)
   }
@@ -177,7 +178,7 @@ object SlidesGenerator {
   private fun addContent(contents: List<SlideContent>, presentation: Presentation, googleSlide: Page, placeholder: PageElement, requests: MutableList<Request>) {
     for (content in contents) {
       when (content) {
-        is ImageContent -> appendCreateImageRequests(presentation, googleSlide, placeholder, requests)
+        is ImageContent -> appendCreateImageRequests(content.url, presentation, googleSlide, placeholder, requests)
         is TextContent -> addInsertTextRequest(placeholder.objectId, content.text, requests)
         is ListContent -> {
           addInsertTextRequest(placeholder.objectId, content.text, requests)

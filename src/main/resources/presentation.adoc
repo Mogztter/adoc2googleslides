@@ -1,5 +1,5 @@
 = Introduction to Cypher
-:imagesdir: https://raw.githubusercontent.com/neo4j-contrib/training-v3/58eef39b7199b58bd7d5679c348c0871a375b9f5/modules/demo-intro/images/
+:imagesdir: https://raw.githubusercontent.com/Mogztter/adoc2googleslides/master/src/main/resources/
 
 == Overview
 
