@@ -1,0 +1,9 @@
+= Introduction to Cypher
+
+== What is Cypher?
+
+* Declarative query language
+* Focuses on _what_, not how to retrieve
+* Uses keywords such as `MATCH`, `WHERE`, `CREATE`
+* Runs in the *database server* for the graph
+* ASCII art to represent nodes and relationships
