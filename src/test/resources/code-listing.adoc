@@ -1,0 +1,9 @@
+= Introduction to Cypher
+
+== Cypher is ASCII Art
+
+[source.big,cypher]
+----
+(A)-[:LIKES]->(B),(A)-[:LIKES]->(C),(B)-[:LIKES]->(C)
+(A)-[:LIKES]->(B)-[:LIKES]->(C)<-[:LIKES]-(A)
+----

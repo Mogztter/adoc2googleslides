@@ -8,7 +8,7 @@ class SlideContentTest {
   private val asciidoctor = Asciidoctor.Factory.create()
 
   @Test
-  fun test() {
+  fun should_map_ulist() {
     val document = asciidoctor.load(AsciidoctorSlides::class.java.getResource("/list-items-with-inline-styles.adoc").readText(), mapOf())
     val slideContent = SlideContent.map(document.findBy(mapOf("context" to ":ulist")).first())
     assertThat(slideContent).isInstanceOf(ListContent::class.java)
@@ -29,5 +29,14 @@ ASCII art to represent nodes and relationships""")
     assertThat(matchCodeTextRange.token.type).isEqualTo("code")
     assertThat(matchCodeTextRange.startIndex).isEqualTo(86)
     assertThat(matchCodeTextRange.endIndex).isEqualTo(91)
+  }
+
+
+  @Test
+  fun should_map_code_listing() {
+    val document = asciidoctor.load(AsciidoctorSlides::class.java.getResource("/code-listing.adoc").readText(), mapOf())
+    val slideContent = SlideContent.map(document.findBy(mapOf("context" to ":listing")).first())
+    assertThat(slideContent).isInstanceOf(ListingContent::class.java)
+    assertThat((slideContent as ListingContent).text).isEqualTo("""(A)-[:LIKES]->(B),(A)-[:LIKES]->(C),(B)-[:LIKES]->(C) (A)-[:LIKES]->(B)-[:LIKES]->(C)<-[:LIKES]-(A)""")
   }
 }

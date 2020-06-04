@@ -76,6 +76,11 @@ sealed class SlideContent {
       if (node.context == "image") {
         return ImageContent(node.document.getAttribute("imagesdir") as String + node.getAttribute("target") as String)
       }
+      if (node.context == "listing") {
+        val htmlText = node.content as String
+        val body = Jsoup.parseBodyFragment(htmlText).body()
+        return ListingContent(Parser.unescapeEntities(body.text(), true))
+      }
       val htmlText = node.content as String
       val body = Jsoup.parseBodyFragment(htmlText).body()
       val textRanges = parseHtmlText(htmlText, body)
@@ -111,6 +116,9 @@ sealed class SlideContent {
   }
 }
 
+data class ListingContent(val text: String) : SlideContent() {
+  val ranges = listOf(TextRange(TextToken(text, "code"), 0, text.length))
+}
 data class ImageContent(val url: String) : SlideContent()
 data class TextContent(val text: String, val ranges: List<TextRange> = emptyList()) : SlideContent()
 data class ListContent(val text: String, val ranges: List<TextRange> = emptyList()) : SlideContent()
@@ -247,6 +255,15 @@ object SlidesGenerator {
           addInsertTextRequest(placeholder.objectId, content.text, currentIndex, content.ranges, requests)
           addCreateParagraphBullets(placeholder.objectId, content.text, currentIndex, requests)
         }
+        is ListingContent -> {
+          val text = if (index < contents.size) {
+            content.text + "\n"
+          } else {
+            content.text
+          }
+          addInsertTextRequest(placeholder.objectId, text, currentIndex, content.ranges, requests)
+          currentIndex += text.length
+        }
       }
     }
   }
@@ -322,8 +339,8 @@ object SlidesGenerator {
       val textRangeRequest = Request()
       val range = Range()
       range.type = "FIXED_RANGE"
-      range.startIndex = textRange.startIndex
-      range.endIndex = textRange.endIndex
+      range.startIndex = insertionIndex + textRange.startIndex
+      range.endIndex = insertionIndex + textRange.endIndex
       val updateTextStyleRequest = UpdateTextStyleRequest()
       updateTextStyleRequest.textRange = range
       updateTextStyleRequest.style = textStyle
