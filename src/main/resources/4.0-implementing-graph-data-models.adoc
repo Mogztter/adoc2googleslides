@@ -1,0 +1,487 @@
+= Implementing Graph Data Models in Neo4j 4.0
+:imagesdir: https://s3.amazonaws.com/dev.assets.neo4j.com/course/4.0-implementing-graph-data-models/images/
+:env-presentation:
+//:env-html-page:
+
+== About this course
+
+This course introduces you to how to develop the Cypher code for creating the nodes and relationships for a graph data model.
+In addition, you will gain experience in refactoring an existing graph as the model changes.
+
+[.notes]
+--
+This course is intended for developers and architects.
+You should have basic Neo4j experience and Cypher programming skills.
+
+
+In this course, you complete hands-on exercises to gain experience with developing graph data models for use with Neo4j.
+
+To complete the hands-on exercises for this course, you need:
+
+[square]
+* Neo4j 4.0 Instance that is started with one of:
+** Neo4j Desktop
+** Neo4j Sandbox
+** Neo4j Aura
+* A database that is empty.
+* Neo4j Browser window connected to the started Neo4j Server instance.
+* Internet access.
+--
+
+ifdef::env-html-page[]
+At the end of each lesson are a set of questions that you must answer correctly to mark the lesson as completed.
+If you complete all lessons, you will receive a _Certificate of Completion_.
+
+If you perform the hands-on exercises, this course will take you approximately 4 hours to complete.
+endif::[]
+
+
+This Course is published by Neo4j per this https://neo4j.com/docs/license/[License for Use^].
+
+== Lesson Overview
+
+Here are the lessons of this course:
+
+. Implementing Your First Model
+. Importing Data
+. Profiling Queries
+. Refactoring Graphs
+
+== Resources
+
+ifndef::env-presentation[]
+We have set up a discussion area in our https://community.neo4j.com/c/general/online-training[Neo4j Community Site], if you run into problems in the course and need assistance.
+You should register on the Community site where you can view other questions and answers for students taking our online training courses.
+The Neo4j Community Site is an excellent resource for answering many types of questions posed by other users of Neo4j.
+endif::[]
+
+Here are some resources you may use as you go through this course:
+
+[square]
+* https://neo4j.com/docs/cypher-manual/4.0/[Neo4j Cypher Manual]
+* https://neo4j.com/developer/resources/[Neo4j Developer Resources]
+ifndef::env-presentation[]
+* https://community.neo4j.com/[Neo4j Community Site]
+endif::[]
+
+
+[.title.slide-start-title]
+== Implementing Your First Model
+
+== About this module
+
+At the end of this module, you should be able to:
+[square]
+* Write Cypher code to implement a simple initial graph data model.
+* Confirm that the starter data is in the graph.
+
+== Domain used for this training
+
+[.notes]
+--
+For this training we will work with a familiar domain, airplane flights.
+We are working in a familiar domain so that we can focus on implementation details, and not be distracted by wider concepts.
+
+Specifically, we will use a dataset from the https://bts.gov/[US Bureau of Transportation].
+--
+
+image::AirlineDomain.png[AirlineDomain,width=800,align=center]
+
+== Data used for this training
+
+[.notes]
+--
+The airline data itself is quite rich.
+We will not make use of every part of it in the exercises, but you can check it out if you have spare time during the exercises.
+--
+
+[.is-half.left]
+--
+image::AirlineIndustryData1.png[AirlineIndustryData1,width=600,align=center]
+--
+
+[.is-half.right]
+--
+image::AirlineIndustryData2.png[AirlineIndustryData2,width=600,align=center]
+--
+
+image::AirlineIndustryData3.png[AirlineIndustryData3,width=600,align=center]
+
+
+== Application question for our model
+
+image::InitialQuestionAirports.png[InitialQuestionAirports,width=500,align=center]
+
+[.notes]
+--
+For this question:
+
+[square]
+* What are the entities?
+* What are the connections between entities?
+* What properties are needed?
+--
+
+== Sample data for our model
+
+[.notes]
+--
+Here is how we might model for this question with some sample data:
+--
+
+ifdef::env-presentation[]
+[.is-half.left]
+--
+image::InitialQuestionAirports.png[InitialQuestionAirports,width=500,align=center]
+--
+endif::[]
+
+[.is-half.right]
+--
+image::InitialSampleDataAndModel.png[InitialSampleDataAndModel,width=500,align=center]
+--
+
+== Working with the sample data
+
+[.statement]
+A best practice when creating a graph with Cypher is to use the `MERGE` statement.
+When creating nodes, you specify the properties in the `MERGE` statement to ensure that nodes with the same property values are not duplicated in the graph.
+For large graphs, the node properties used for the MERGE should have uniqueness constraints on them.
+
+[.statement]
+In the next exercise, Exercise 1, you will:
+[.small]
+--
+. Create three _Airport_ nodes and two _CONNECTED_TO_ relationships per the initial data model by using the `MERGE` statement.
+. Query the graph to show the newly-created nodes and relationships.
+--
+
+[.notes]
+--
+Creating the nodes and relationships using the `MERGE` statement and hard-coding values is fine for small sample data, but once you start working with larger amounts of data, you will want to load the data (typically from CSV files).
+--
+
+[.student-exercise]
+== Exercise 1: Getting started with the airport graph data model
+
+[.small]
+--
+Before you start this exercise you must:
+
+. Create a project in Neo4j Desktop, create a blank sandbox, or create a Neo4j Aura instance.
+. If using Neo4j Desktop, create a local 4.x database in the project and start it.
+. Open a Neo4j Browser window for the database.
+
+In the query edit pane of Neo4j Browser, execute the browser command:
+
+kbd:[:play 4.0-neo4j-modeling-exercises]
+
+and follow the instructions for Exercise 1.
+
+[NOTE]
+This exercise has 3 steps.
+Estimated time to complete: 15 minutes.
+--
+
+ifdef::env-presentation[]
+[.notes]
+--
+While the students are doing this exercise, you can populate your empty graph as follows:
+MERGE (a:Airport {code:'LAS'})
+MERGE (b:Airport {code:'LAX'})
+MERGE (c:Airport {code:'ABQ'})
+MERGE (a)-[:CONNECTED_TO {airline:'WN',flightNumber:'82',date:'2019-1-3',departure:'1715',arrival:'1820'}]->(b)
+MERGE (a)-[:CONNECTED_TO {airline:'WN',flightNumber:'500',date:'2019-1-3',departure:'1445',arrival:'1710'}]->(c)
+--
+endif::[]
+
+[.quiz]
+== Check your understanding
+
+== Question 1
+
+[.statement]
+What Cypher statement is a best practice for adding nodes and relationships to the graph?
+
+[.statement]
+Select the correct answer.
+
+[%interactive.answers]
+- [ ] `CREATE`
+- [ ] `ADD`
+- [x] `MERGE`
+- [ ] `INSERT`
+
+== Question 2
+
+[.statement]
+Given this code:
+[source,cypher]
+----
+CREATE (:Person {name:"Joe"}
+CREATE (:Person {name:"Jane"}
+MERGE (:Person {name:"Bob"}
+MERGE (:Person {name:"Joe"}
+----
+
+[.statement]
+How many nodes are created in the graph?
+
+[.statement]
+Select the correct answer.
+
+[%interactive.answers]
+- [ ] 0
+- [ ] 2
+- [x] 3
+- [ ] 4
+
+== Question 3
+
+[.statement]
+Given this code:
+
+[source,cypher]
+----
+MERGE (a:Airport {code:'LAS'})
+MERGE (b:Airport {code:'LAX'})
+MERGE (c:Airport {code:'ABQ'})
+MERGE (a)-[:CONNECTED_TO {airline:'WN',flightNumber:'82',date:'2019-1-3',departure:'1715',arrival:'1820'}]->(b)
+MERGE (a)-[:CONNECTED_TO {airline:'WN',flightNumber:'500',date:'2019-1-3',departure:'1445',arrival:'1710'}]->(c)
+----
+
+[.statement]
+What is the implied entity for this domain?
+
+[.statement]
+Select the correct answer.
+
+[%interactive.answers]
+- [x] Airport
+- [ ] code
+- [ ] airline
+- [ ] CONNECTED_TO
+
+[.summary]
+== Summary
+
+You should now be able to:
+[square]
+* Write Cypher code to implement a simple initial graph data model.
+* Confirm that the starter data is in the graph.
+
+[.title.slide-start-title]
+== Importing Data into the Graph
+
+== About this module
+
+At the end of this module, you should be able to:
+[square]
+* Write Cypher code to import CSV data into the graph.
+* Confirm that the data has been loaded.
+
+== Options for importing data into the graph
+
+[.statement]
+You have many options for importing data into Neo4j.
+Which option you choose depends on:
+
+[.small]
+--
+[square]
+* How much data you have.
+* What tools you are comfortable using.
+* How much time you have to perform the import.
+--
+
+image::ImportOptions.png[ImportOptions,width=600,align=center]
+
+[.notes]
+--
+In this training, we will use Cypher to import data into the graph.
+Using Cypher enables us to control and customize how data is created and refactored as our model changes.
+--
+
+== Prepare for the import
+
+[.notes]
+--
+Before you import data into the graph, you should have an idea of the target graph data model you want to achieve.
+You should work with the data architects for your application so that everybody agrees upon:
+--
+
+[square]
+* Names of entities (node labels).
+* Names of relationships.
+* Names of properties for nodes and relationships.
+* Constraints to be defined.
+* Indexes required.
+* The most important queries.
+
+== Review: Steps for loading CSV data with Cypher
+
+[.notes]
+--
+CSV import is commonly used to import data into a graph.
+If you want to import data from CSV, you will need to first develop a model that describes how data from your CSV maps to data in your graph.
+
+Assuming that you have an agreed-upon data model, here are the basic steps you should follow for importing using Cypher and CSV files:
+--
+[.small]
+--
+. Determine how the CSV file will be structured.
+. Determine if normalized or denormalized data.
+. Ensure IDs to be used in the data are unique.
+. Ensure data in CSV files is "clean".
+. Execute Cypher code to inspect the data.
+. Determine if data needs to be transformed.
+. If required, ensure constraints are created in the graph.
+. Determine the size of the data to be loaded.
+. Execute Cypher code to load the data.
+. Add indexes to the graph.
+
+[NOTE]
+These steps are covered in the course _Introduction to Neo4j 4.0: Using LOAD CSV for Import_.
+--
+
+== Review: Using `LOAD CSV`
+
+Here is the simplified syntax for using `LOAD CSV`:
+
+[source,cypher]
+----
+LOAD CSV     // load csv data
+WITH HEADERS // optionally use first header row as keys in "row" map
+FROM "url"   // file:/// file relative to $NEO4J_HOME/import or http://
+AS row       // return each row of the CSV as list of strings or map
+// ... rest of the Cypher statement ...
+----
+
+[NOTE]
+You can use `LOAD CSV` for CSV files that contain fewer than 100k lines.
+
+== Example: Inspecting data from the CSV file on network
+
+image::InspectDataHTTP.png[InspectDataHTTP,width=700,align=center]
+
+
+== Example: Inspecting data from the CSV file in import folder
+
+image::InspectDataFile.png[InspectDataFile,width=700,align=center]
+
+== Example: Creating nodes and relationships
+
+You use `LOAD CSV` to read the data from the CSV file as a row to create nodes and relationships, for example:
+
+[source,cypher]
+----
+LOAD CSV WITH HEADERS FROM 'https://r.neo4j.com/flights_2019_1k' AS row
+MERGE (origin:Airport {code: row.Origin})
+MERGE (destination:Airport {code: row.Dest})
+MERGE (origin)-[connection:CONNECTED_TO {
+  airline: row.UniqueCarrier,
+  flightNumber: row.FlightNum,
+  date: toInteger(row.Year) + '-' + toInteger(row.Month) + '-' + toInteger(row.DayofMonth)}]->(destination)
+ON CREATE SET connection.departure = toInteger(row.CRSDepTime), connection.arrival = toInteger(row.CRSArrTime)
+----
+
+[.notes]
+--
+As each _row_ is read from the file,  _Airport_ nodes are created  with _code_ property values of _row.Origin_ and _row.Dest_.
+From the _row_ values, we create the connection between the two nodes based upon the _row.uniqueCarrier_ value for setting the _airline_ property, _row.flightNumber_ for the _FlightNum_ property, and _row.Year_ + _row.Month_ + _row.DayOfMonth_ for the _date_ property.
+We use `MERGE` to ensure that duplicate nodes and relationships are not created with the same property values.
+If the connection is being created, we provide additional properties, _departure_ and _arrival_.
+
+For *large* datasets, you should ensure that uniqueness constraints (indexes) are created on the Airport code property before you load the data.
+This will dramatically improve the performance of the load as it will use the index during the `MERGE`.
+This dataset is small so load performance is not an issue at this point.
+--
+
+[.student-exercise]
+== Exercise 2: Loading airport data
+
+[.notes]
+--
+Your first import of airline data will use a CSV file with 1K lines so you will use the standard `LOAD CSV` statement.
+This CSV file has already been cleaned up and is in a normalized format.
+--
+
+[.small]
+--
+In the query edit pane of Neo4j Browser, execute the browser command:
+
+kbd:[:play 4.0-neo4j-modeling-exercises]
+
+and follow the instructions for Exercise 2.
+
+[NOTE]
+This exercise has 9 steps.
+Estimated time to complete: 30 minutes.
+--
+
+
+[.quiz]
+== Check your understanding
+
+== Question 1
+
+[.statement]
+What Cypher statement do you use to import data from a CSV file?
+
+[.statement]
+Select the correct answer.
+
+[%interactive.answers]
+- [ ] `LOAD DATA`
+- [ ] `IMPORT DATA`
+- [x] `LOAD CSV`
+- [ ] `IMPORT CSV`
+
+== Question 2
+
+[.statement]
+
+[.statement]
+Up to how many lines can you import data using `LOAD CSV`?
+
+[.statement]
+Select the correct answer.
+
+[%interactive.answers]
+- [ ] 1K
+- [ ] 10K
+- [x] 100K
+- [ ] 1M
+
+== Question 3
+
+[.statement]
+When you import data using `LOAD CSV`, where can the CSV data come from?
+
+[.statement]
+Select the correct answers.
+
+[%interactive.answers]
+- [x] File that has been placed in the *import* folder relative to the database instance.
+- [ ] File that has been placed in the Neo4j Desktop project.
+- [x] File at a network location accessible via http/https.
+- [ ] A JDBC connection that is open.
+
+[.summary]
+== Summary
+
+You should now be able to:
+[square]
+* Write Cypher code to import CSV data with Cypher.
+* Confirm that the data has been loaded.
+
+////
+[.title.slide-start-title]
+include::{includedir}/03_ProfilingQueries.adoc[leveloffset=+1]
+
+[.title.slide-start-title]
+include::{includedir}/04_RefactoringGraphs.adoc[leveloffset=+1]
+
+[.title.slide-start-title]
+include::{includedir}/05_Summary.adoc[leveloffset=+1]
+////

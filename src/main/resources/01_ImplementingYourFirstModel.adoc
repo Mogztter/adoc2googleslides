@@ -1,0 +1,209 @@
+= Implementing Your First Model
+:slug: 01-igdm-40-implementing-first-model
+:doctype: book
+:toc: left
+:toclevels: 4
+:imagesdir: ../images
+:module-next-title: Importing Data into the Graph
+
+== About this module
+
+At the end of this module, you should be able to:
+[square]
+* Write Cypher code to implement a simple initial graph data model.
+* Confirm that the starter data is in the graph.
+
+== Domain used for this training
+
+[.notes]
+--
+For this training we will work with a familiar domain, airplane flights.
+We are working in a familiar domain so that we can focus on implementation details, and not be distracted by wider concepts.
+
+Specifically, we will use a dataset from the https://bts.gov/[US Bureau of Transportation].
+--
+
+image::AirlineDomain.png[AirlineDomain,width=800,align=center]
+
+=== Data used for this training
+
+[.notes]
+--
+The airline data itself is quite rich.
+We will not make use of every part of it in the exercises, but you can check it out if you have spare time during the exercises.
+--
+
+[.is-half.left]
+--
+image::AirlineIndustryData1.png[AirlineIndustryData1,width=600,align=center]
+--
+
+[.is-half.right]
+--
+image::AirlineIndustryData2.png[AirlineIndustryData2,width=600,align=center]
+--
+
+image::AirlineIndustryData3.png[AirlineIndustryData3,width=600,align=center]
+
+
+== Application question for our model
+
+image::InitialQuestionAirports.png[InitialQuestionAirports,width=500,align=center]
+
+[.notes]
+--
+For this question:
+
+[square]
+* What are the entities?
+* What are the connections between entities?
+* What properties are needed?
+--
+
+== Sample data for our model
+
+[.notes]
+--
+Here is how we might model for this question with some sample data:
+--
+
+ifdef::backend-revealjs[]
+[.is-half.left]
+--
+image::InitialQuestionAirports.png[InitialQuestionAirports,width=500,align=center]
+--
+endif::[]
+
+[.is-half.right]
+--
+image::InitialSampleDataAndModel.png[InitialSampleDataAndModel,width=500,align=center]
+--
+
+== Working with the sample data
+
+[.statement]
+A best practice when creating a graph with Cypher is to use the `MERGE` statement.
+When creating nodes, you specify the properties in the `MERGE` statement to ensure that nodes with the same property values are not duplicated in the graph.
+For large graphs, the node properties used for the MERGE should have uniqueness constraints on them.
+
+[.statement]
+In the next exercise, Exercise 1, you will:
+[.small]
+--
+. Create three _Airport_ nodes and two _CONNECTED_TO_ relationships per the initial data model by using the `MERGE` statement.
+. Query the graph to show the newly-created nodes and relationships.
+--
+
+[.notes]
+--
+Creating the nodes and relationships using the `MERGE` statement and hard-coding values is fine for small sample data, but once you start working with larger amounts of data, you will want to load the data (typically from CSV files).
+--
+
+[.student-exercise]
+== Exercise 1: Getting started with the airport graph data model
+
+[.small]
+--
+Before you start this exercise you must:
+
+. Create a project in Neo4j Desktop, create a blank sandbox, or create a Neo4j Aura instance.
+. If using Neo4j Desktop, create a local 4.x database in the project and start it.
+. Open a Neo4j Browser window for the database.
+
+In the query edit pane of Neo4j Browser, execute the browser command:
+
+kbd:[:play 4.0-neo4j-modeling-exercises]
+
+and follow the instructions for Exercise 1.
+
+[NOTE]
+This exercise has 3 steps.
+Estimated time to complete: 15 minutes.
+--
+
+ifdef::backend-revealjs[]
+[.notes]
+--
+While the students are doing this exercise, you can populate your empty graph as follows:
+MERGE (a:Airport {code:'LAS'})
+MERGE (b:Airport {code:'LAX'})
+MERGE (c:Airport {code:'ABQ'})
+MERGE (a)-[:CONNECTED_TO {airline:'WN',flightNumber:'82',date:'2019-1-3',departure:'1715',arrival:'1820'}]->(b)
+MERGE (a)-[:CONNECTED_TO {airline:'WN',flightNumber:'500',date:'2019-1-3',departure:'1445',arrival:'1710'}]->(c)
+--
+endif::[]
+
+[.quiz]
+== Check your understanding
+
+=== Question 1
+
+[.statement]
+What Cypher statement is a best practice for adding nodes and relationships to the graph?
+
+[.statement]
+Select the correct answer.
+
+[%interactive.answers]
+- [ ] `CREATE`
+- [ ] `ADD`
+- [x] `MERGE`
+- [ ] `INSERT`
+
+=== Question 2
+
+[.statement]
+Given this code:
+[source,cypher]
+----
+CREATE (:Person {name:"Joe"}
+CREATE (:Person {name:"Jane"}
+MERGE (:Person {name:"Bob"}
+MERGE (:Person {name:"Joe"}
+----
+
+[.statement]
+How many nodes are created in the graph?
+
+[.statement]
+Select the correct answer.
+
+[%interactive.answers]
+- [ ] 0
+- [ ] 2
+- [x] 3
+- [ ] 4
+
+=== Question 3
+
+[.statement]
+Given this code:
+
+[source,cypher]
+----
+MERGE (a:Airport {code:'LAS'})
+MERGE (b:Airport {code:'LAX'})
+MERGE (c:Airport {code:'ABQ'})
+MERGE (a)-[:CONNECTED_TO {airline:'WN',flightNumber:'82',date:'2019-1-3',departure:'1715',arrival:'1820'}]->(b)
+MERGE (a)-[:CONNECTED_TO {airline:'WN',flightNumber:'500',date:'2019-1-3',departure:'1445',arrival:'1710'}]->(c)
+----
+
+[.statement]
+What is the implied entity for this domain?
+
+[.statement]
+Select the correct answer.
+
+[%interactive.answers]
+- [x] Airport
+- [ ] code
+- [ ] airline
+- [ ] CONNECTED_TO
+
+[.summary]
+== Summary
+
+You should now be able to:
+[square]
+* Write Cypher code to implement a simple initial graph data model.
+* Confirm that the starter data is in the graph.

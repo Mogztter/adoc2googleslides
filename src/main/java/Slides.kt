@@ -20,7 +20,7 @@ object AsciidoctorSlides {
 
   fun generateFromAsciiDoc(): AsciidoctorPresentation {
     val asciidoctor = create()
-    val document = asciidoctor.load(AsciidoctorSlides::class.java.getResource("/presentation.adoc").readText(), mapOf())
+    val document = asciidoctor.load(AsciidoctorSlides::class.java.getResource("/4.0-implementing-graph-data-models.adoc").readText(), mapOf())
     val slides = document.blocks.mapNotNull { block ->
       if (block is Section) {
         val slideTitle = if (block.title == "!") null else block.title
