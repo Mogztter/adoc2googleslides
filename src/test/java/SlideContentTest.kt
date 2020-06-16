@@ -11,13 +11,16 @@ class SlideContentTest {
   fun should_map_ulist() {
     val document = asciidoctor.load(AsciidoctorSlides::class.java.getResource("/list-items-with-inline-styles.adoc").readText(), mapOf())
     val slideContent = SlideContent.map(document.findBy(mapOf("context" to ":ulist")).first())
-    assertThat(slideContent).isInstanceOf(ListContent::class.java)
-    assertThat((slideContent as ListContent).text).isEqualTo("""Declarative query language
+    val listContents = slideContent.contents.filterIsInstance(ListContent::class.java)
+    assertThat(listContents).isNotEmpty
+    assertThat(listContents).hasSize(1)
+    val listContent = listContents.first()
+    assertThat(listContent.text).isEqualTo("""Declarative query language
 Focuses on what, not how to retrieve
 Uses keywords such as MATCH, WHERE, CREATE
 Runs in the database server for the graph
 ASCII art to represent nodes and relationships""")
-    val textWithStyleRanges = slideContent.ranges.filter { it.token.type != "text" }
+    val textWithStyleRanges = listContent.ranges.filter { it.token.type != "text" }
     assertThat(textWithStyleRanges).hasSize(5)
     val whatEmphasisTextRange = textWithStyleRanges[0]
     assertThat(whatEmphasisTextRange.token.text).isEqualTo("what")
@@ -36,7 +39,9 @@ ASCII art to represent nodes and relationships""")
   fun should_map_code_listing() {
     val document = asciidoctor.load(AsciidoctorSlides::class.java.getResource("/code-listing.adoc").readText(), mapOf())
     val slideContent = SlideContent.map(document.findBy(mapOf("context" to ":listing")).first())
-    assertThat(slideContent).isInstanceOf(ListingContent::class.java)
-    assertThat((slideContent as ListingContent).text).isEqualTo("""(A)-[:LIKES]->(B),(A)-[:LIKES]->(C),(B)-[:LIKES]->(C) (A)-[:LIKES]->(B)-[:LIKES]->(C)<-[:LIKES]-(A)""")
+    val listingContents = slideContent.contents.filterIsInstance(ListingContent::class.java)
+    assertThat(listingContents).isNotEmpty
+    assertThat(listingContents).hasSize(1)
+    assertThat(listingContents.first().text).isEqualTo("""(A)-[:LIKES]->(B),(A)-[:LIKES]->(C),(B)-[:LIKES]->(C)(A)-[:LIKES]->(B)-[:LIKES]->(C)<-[:LIKES]-(A)""")
   }
 }

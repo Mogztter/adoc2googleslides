@@ -28,7 +28,13 @@ object AsciidoctorSlides {
     val document = asciidoctor.load(AsciidoctorSlides::class.java.getResource("/4.0-implementing-graph-data-models.adoc").readText(), mapOf())
     val slides = document.blocks.mapNotNull { block ->
       if (block is Section) {
-        val slideTitle = if (block.title == "!") null else block.title
+        val slideTitle = if (block.title == "!") {
+          null
+        } else {
+          // FIXME: extract text transformation + range
+          val doc = Jsoup.parseBodyFragment(block.title)
+          doc.text()
+        }
         val slideBlocks = block.blocks
         val (speakerNotesBlocks, contentBlocks) = slideBlocks.partition { it.roles.contains("notes") }
         val speakerNotes = speakerNotesBlocks.joinToString("\n") {
@@ -41,7 +47,14 @@ object AsciidoctorSlides {
           if (twoColumnsBlock.blocks.size == 2) {
             val leftBlock = twoColumnsBlock.blocks[0]
             val rightBlock = twoColumnsBlock.blocks[1]
-            AsciidoctorTitleAndTwoColumns(slideTitle, SlideContent.map(rightBlock), SlideContent.map(leftBlock), speakerNotes)
+            val rightColumnContents = SlideContent.map(rightBlock)
+            val leftColumnContents = SlideContent.map(leftBlock)
+            AsciidoctorTitleAndTwoColumns(
+              title = slideTitle,
+              rightColumn = rightColumnContents,
+              leftColumn = leftColumnContents,
+              speakerNotes = speakerNotes + rightColumnContents.speakerNotes.orEmpty() + leftColumnContents.speakerNotes.orEmpty()
+            )
           } else {
             println("WARNING: a two-columns block must have exactly 2 nested blocks, ignoring!")
             null
@@ -49,13 +62,13 @@ object AsciidoctorSlides {
         } else {
           val slideContents = contentBlocks.map { SlideContent.map(it) }
           val contents = if (slideContents.isNotEmpty()) {
-             slideContents.reduce { slide, acc ->
-              SlideContents(slide.contents + acc.contents)
+            slideContents.reduce { slide, acc ->
+              SlideContents(slide.contents + acc.contents, slide.speakerNotes.orEmpty() + acc.speakerNotes.orEmpty())
             }
           } else {
             SlideContents(emptyList())
           }
-          AsciidoctorTitleAndBodySlide(slideTitle, contents, speakerNotes)
+          AsciidoctorTitleAndBodySlide(slideTitle, contents, speakerNotes + contents.speakerNotes)
         }
       } else {
         null
@@ -79,12 +92,37 @@ sealed class SlideContent {
           // adds +1 because each line will be join with \n
           currentIndex += Parser.unescapeEntities(body.text(), true).length + 1
         }
-        val type = if (node.context == "ulist" && node.isOption("checklist")) "checklist" else node.context
-        return SlideContents(listOf(ListContent(node.items.joinToString("\n") {
+        val type = if (node.context == "ulist" && node.isOption("checklist")) {
+          "checklist"
+        } else {
+          node.context
+        }
+        val speakerNotes = if (type == "checklist" && node.hasRole("answers")) {
+          var answers = "\nCorrect answer(s):\n"
+          for (item in node.items) {
+            if (item.hasAttribute("checked")) {
+              val html = (item as ListItem).text
+              println("html $html")
+              val doc = Jsoup.parseBodyFragment(html)
+              answers += "- ${doc.text()}\n"
+            }
+          }
+          answers
+        } else {
+          ""
+        }
+        val rawText = node.items.joinToString("\n") {
           val text = (it as ListItem).text
           val doc = Jsoup.parseBodyFragment(text)
           Parser.unescapeEntities(doc.body().text(), true)
-        }, type, textRanges)))
+        }
+        val listContent = ListContent(
+          text = rawText,
+          type = type,
+          ranges = textRanges,
+          roles = node.roles + node.parent.roles
+        )
+        return SlideContents(listOf(listContent), speakerNotes)
       }
       if (node.context == "image") {
         val url = node.document.getAttribute("imagesdir") as String + node.getAttribute("target") as String
@@ -92,24 +130,40 @@ sealed class SlideContent {
           val bufferedImage = ImageIO.read(URL(url))
           val height = bufferedImage.height
           val width = bufferedImage.width
-          return  SlideContents(listOf(ImageContent(url, height, width)))
+          return SlideContents(listOf(ImageContent(url, height, width)))
         }
         throw IllegalArgumentException("Local images are not supported, the target must be a remote URL starting with http:// or https://")
       }
       if (node.context == "listing") {
-        val htmlText = node.content as String
-        val body = Jsoup.parseBodyFragment(htmlText).body()
-        return SlideContents(listOf(ListingContent(Parser.unescapeEntities(body.text(), true))))
+        val rawText = node.content as String
+        val code = Parser.unescapeEntities(rawText, true)
+        val maxLineLength = code.split("\n").map { it.length }.max() ?: 0
+        // remind: optimized for Roboto Mono
+        val fontSize = when {
+          maxLineLength > 121 -> 8
+          maxLineLength > 109 -> 9
+          maxLineLength > 99 -> 10
+          maxLineLength > 91 -> 11
+          maxLineLength > 84 -> 12
+          maxLineLength > 78 -> 13
+          else -> 14
+        }
+        return SlideContents(listOf(ListingContent(code.replace(Regex("\n"), "\u000b"), fontSize)))
       }
       if (node.context == "open") {
         return node.blocks.map { map(it) }.reduce { slide, acc ->
-          SlideContents(slide.contents + acc.contents)
+          SlideContents(slide.contents + acc.contents, slide.speakerNotes.orEmpty() + acc.speakerNotes.orEmpty())
         }
       }
       val htmlText = node.content as String
       val body = Jsoup.parseBodyFragment(htmlText).body()
       val textRanges = parseHtmlText(htmlText, body)
-      return SlideContents(listOf(TextContent(Parser.unescapeEntities(body.text(), true), textRanges)))
+      val roles = node.roles + node.parent.roles
+      return SlideContents(listOf(TextContent(
+        text = Parser.unescapeEntities(body.text(), true),
+        ranges = textRanges,
+        roles = roles
+      )))
     }
 
     private fun parseHtmlText(htmlText: String, body: Element, initialIndex: Int = 0): List<TextRange> {
@@ -141,15 +195,16 @@ sealed class SlideContent {
   }
 }
 
-data class ListingContent(val text: String) : SlideContent() {
+data class ListingContent(val text: String, val fontSize: Int) : SlideContent() {
   val ranges = listOf(TextRange(TextToken(text, "code"), 0, text.length))
 }
+
 data class ImageContent(val url: String, val height: Int, val width: Int, val padding: Double = 0.0, val offsetX: Double = 0.0, val offsetY: Double = 0.0) : SlideContent()
-data class TextContent(val text: String, val ranges: List<TextRange> = emptyList()) : SlideContent()
-data class ListContent(val text: String, val type: String, val ranges: List<TextRange> = emptyList()) : SlideContent()
+data class TextContent(val text: String, val ranges: List<TextRange> = emptyList(), val roles: List<String> = emptyList(), val fontSize: Int? = null) : SlideContent()
+data class ListContent(val text: String, val type: String, val ranges: List<TextRange> = emptyList(), val roles: List<String> = emptyList()) : SlideContent()
 data class TextRange(val token: TextToken, val startIndex: Int, val endIndex: Int)
 data class TextToken(val text: String, val type: String)
-data class SlideContents(val contents: List<SlideContent>)
+data class SlideContents(val contents: List<SlideContent>, val speakerNotes: String? = null)
 
 data class AsciidoctorTitleAndTwoColumns(override val title: String?,
                                          val rightColumn: SlideContents,
@@ -202,25 +257,25 @@ object SlidesGenerator {
     requests = mutableListOf()
 
     val firstSlideTitle = presentation.slides[0].pageElements.first { it.shape.placeholder.type == "CENTERED_TITLE" }
-    addInsertTextRequest(firstSlideTitle.objectId, asciidoctorPresentation.title, 0, emptyList(), requests)
+    addInsertTextRequest(firstSlideTitle.objectId, TextContent(asciidoctorPresentation.title), 0, requests)
 
     asciidoctorPresentation.slides.forEachIndexed { index, asciidoctorSlide ->
       val googleSlide = presentation.slides[index + 1]
       val speakerNotesObjectId = googleSlide.slideProperties.notesPage.notesProperties.speakerNotesObjectId
       if (speakerNotesObjectId != null && asciidoctorSlide.speakerNotes != null && asciidoctorSlide.speakerNotes!!.isNotBlank()) {
-        addInsertTextRequest(speakerNotesObjectId, asciidoctorSlide.speakerNotes!!, 0, emptyList(), requests)
+        addInsertTextRequest(speakerNotesObjectId, TextContent(asciidoctorSlide.speakerNotes!!), 0, requests)
       }
       if (asciidoctorSlide is AsciidoctorTitleAndBodySlide) {
         val slideTitle = googleSlide.pageElements.first { it.shape.placeholder.type == "TITLE" }
         val slideBody = googleSlide.pageElements.first { it.shape.placeholder.type == "BODY" }
-        addInsertTextRequest(slideTitle.objectId, asciidoctorSlide.title.orEmpty(), 0, emptyList(), requests)
+        addInsertTextRequest(slideTitle.objectId, TextContent(asciidoctorSlide.title.orEmpty()), 0, requests)
         addContent(asciidoctorSlide.body.contents, presentation, googleSlide, slideBody, requests)
       } else if (asciidoctorSlide is AsciidoctorTitleAndTwoColumns) {
         val slideTitle = googleSlide.pageElements.first { it.shape.placeholder.type == "TITLE" }
         val bodies = googleSlide.pageElements.filter { it.shape.placeholder.type == "BODY" }
         val slideLeftBody = bodies[0]
         val slideRightBody = bodies[1]
-        addInsertTextRequest(slideTitle.objectId, asciidoctorSlide.title.orEmpty(), 0, emptyList(), requests)
+        addInsertTextRequest(slideTitle.objectId, TextContent(asciidoctorSlide.title.orEmpty()), 0, requests)
         addContent(asciidoctorSlide.leftColumn.contents, presentation, googleSlide, slideLeftBody, requests)
         addContent(asciidoctorSlide.rightColumn.contents, presentation, googleSlide, slideRightBody, requests)
       }
@@ -289,38 +344,6 @@ object SlidesGenerator {
     }
   }
 
-  private fun appendCreateImageRequests(url: String, presentation: Presentation, slide: Page, placeholder: PageElement, requests: MutableList<Request>) {
-    val box = GenericLayout.getBodyBoundingBox(presentation, placeholder)
-    val request = Request()
-    val createImageRequest = CreateImageRequest()
-    val pageElementProperties = PageElementProperties()
-    pageElementProperties.pageObjectId = slide.objectId
-    val scaleRatio = 1.0
-    val width = box.width * scaleRatio
-    val height = box.height * scaleRatio
-    val size = Size()
-    val heightDimension = Dimension()
-    heightDimension.magnitude = height
-    heightDimension.unit = "EMU"
-    size.height = heightDimension
-    val widthDimension = Dimension()
-    widthDimension.magnitude = width
-    widthDimension.unit = "EMU"
-    size.width = widthDimension
-    pageElementProperties.setSize(size)
-    val transform = AffineTransform()
-    transform.scaleX = 1.0
-    transform.scaleY = 1.0
-    transform.translateX = box.minX
-    transform.translateY = box.minY
-    transform.unit = "EMU"
-    pageElementProperties.transform = transform
-    createImageRequest.elementProperties = pageElementProperties
-    createImageRequest.url = url
-    request.createImage = createImageRequest
-    requests.add(request)
-  }
-
   @Suppress("UNCHECKED_CAST")
   private fun addContent(contents: List<SlideContent>, presentation: Presentation, googleSlide: Page, placeholder: PageElement, requests: MutableList<Request>) {
     var currentIndex = 0
@@ -331,19 +354,24 @@ object SlidesGenerator {
     }
     contents.filterNot { it is ImageContent }.forEachIndexed { index, content ->
       when (content) {
-        //is ImageContent -> appendCreateImageRequests(content.url, presentation, googleSlide, placeholder, requests)
         is TextContent -> {
           val text = if (index < contents.size) {
             content.text + "\n"
           } else {
             content.text
           }
-          addInsertTextRequest(placeholder.objectId, text, currentIndex, content.ranges, requests)
+          addInsertTextRequest(placeholder.objectId, TextContent(text, content.ranges, content.roles, content.fontSize), currentIndex, requests)
           currentIndex += text.length
         }
         is ListContent -> {
-          addInsertTextRequest(placeholder.objectId, content.text, currentIndex, content.ranges, requests)
-          addCreateParagraphBullets(placeholder.objectId, content, currentIndex, requests)
+          val text = if (index < contents.size) {
+            content.text + "\n"
+          } else {
+            content.text
+          }
+          addInsertTextRequest(placeholder.objectId, TextContent(text, content.ranges, content.roles), currentIndex, requests)
+          addCreateParagraphBullets(placeholder.objectId, ListContent(text, content.type, content.ranges, content.roles), currentIndex, requests)
+          currentIndex += text.length
         }
         is ListingContent -> {
           val text = if (index < contents.size) {
@@ -351,7 +379,7 @@ object SlidesGenerator {
           } else {
             content.text
           }
-          addInsertTextRequest(placeholder.objectId, text, currentIndex, content.ranges, requests)
+          addInsertTextRequest(placeholder.objectId, TextContent(text, ranges = content.ranges, fontSize = content.fontSize), currentIndex, requests)
           currentIndex += text.length
         }
       }
@@ -394,7 +422,9 @@ object SlidesGenerator {
     requests.add(request)
   }
 
-  private fun addInsertTextRequest(placeholderObjectId: String, text: String, insertionIndex: Int = 0, textRanges: List<TextRange>, requests: MutableList<Request>) {
+  private fun addInsertTextRequest(placeholderObjectId: String, textContent: TextContent, insertionIndex: Int = 0, requests: MutableList<Request>) {
+    val text = textContent.text
+    val textRanges = textContent.ranges
     val request = Request()
     val insertTextRequest = InsertTextRequest()
     insertTextRequest.text = text
@@ -406,17 +436,13 @@ object SlidesGenerator {
       val textStyle = TextStyle()
       val type = textRange.token.type
       if (type == "code") {
-        val fgColor = OptionalColor()
-        val fgOpaqueColor = OpaqueColor()
-        fgOpaqueColor.themeColor = "ACCENT1"
-        fgColor.opaqueColor = fgOpaqueColor
-        textStyle.foregroundColor = fgColor
         val bgColor = OptionalColor()
         val bgOpaqueColor = OpaqueColor()
         bgOpaqueColor.themeColor = "LIGHT1"
         bgColor.opaqueColor = bgOpaqueColor
         textStyle.backgroundColor = bgColor
         textStyle.fontFamily = "Roboto Mono"
+        textStyle.bold = true
       } else if (type == "em") {
         textStyle.italic = true
       } else if (type == "strong" || type == "b") {
@@ -439,17 +465,42 @@ object SlidesGenerator {
       textRangeRequest.updateTextStyle = updateTextStyleRequest
       requests.add(textRangeRequest)
     }
+    val fontSize = textContent.fontSize
+      ?: if (textContent.roles.contains("small") || textContent.roles.contains("statement")) {
+        13
+      } else {
+        null
+      }
+    if (fontSize != null) {
+      val updateTextStyleRequest = UpdateTextStyleRequest()
+      val range = Range()
+      range.type = "FIXED_RANGE"
+      range.startIndex = insertionIndex
+      range.endIndex = insertionIndex + text.length
+      updateTextStyleRequest.textRange = range
+      val textStyle = TextStyle()
+      val fontSizeDimension = Dimension()
+      fontSizeDimension.magnitude = fontSize.toDouble()
+      fontSizeDimension.unit = "PT"
+      textStyle.fontSize = fontSizeDimension
+      updateTextStyleRequest.style = textStyle
+      updateTextStyleRequest.objectId = placeholderObjectId
+      updateTextStyleRequest.fields = "fontSize"
+      val textRangeRequest = Request()
+      textRangeRequest.updateTextStyle = updateTextStyleRequest
+      requests.add(textRangeRequest)
+    }
   }
 
-  private fun addCreateParagraphBullets(placeholderObjectId: String, listContent: ListContent, startIndex: Int = 0, requests: MutableList<Request>) {
+  private fun addCreateParagraphBullets(placeholderObjectId: String, listContent: ListContent, insertionIndex: Int = 0, requests: MutableList<Request>) {
     val request = Request()
     val createParagraphBulletsRequest = CreateParagraphBulletsRequest()
     val textRange = Range()
     textRange.type = "FIXED_RANGE"
-    textRange.startIndex = startIndex
-    textRange.endIndex = startIndex + listContent.text.length
+    textRange.startIndex = insertionIndex
+    textRange.endIndex = insertionIndex + listContent.text.length
     createParagraphBulletsRequest.textRange = textRange
-    createParagraphBulletsRequest.bulletPreset = when(listContent.type) {
+    createParagraphBulletsRequest.bulletPreset = when (listContent.type) {
       "checklist" -> "BULLET_CHECKBOX"
       "olist" -> "NUMBERED_DIGIT_ALPHA_ROMAN"
       else -> "BULLET_DISC_CIRCLE_SQUARE"
