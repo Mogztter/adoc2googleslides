@@ -1,4 +1,6 @@
 import com.google.api.services.slides.v1.model.*
+import layout.Item
+import layout.Layout
 import org.asciidoctor.Asciidoctor.Factory.create
 import org.asciidoctor.ast.ListItem
 import org.asciidoctor.ast.Section
@@ -7,7 +9,10 @@ import org.jsoup.Jsoup
 import org.jsoup.nodes.Element
 import org.jsoup.nodes.TextNode
 import org.jsoup.parser.Parser
+import java.net.URL
 import java.util.*
+import javax.imageio.ImageIO
+import kotlin.math.min
 
 
 fun main() {
@@ -36,13 +41,20 @@ object AsciidoctorSlides {
           if (twoColumnsBlock.blocks.size == 2) {
             val leftBlock = twoColumnsBlock.blocks[0]
             val rightBlock = twoColumnsBlock.blocks[1]
-            AsciidoctorTitleAndTwoColumns(slideTitle, SlideContents(listOf(SlideContent.map(rightBlock))), SlideContents(listOf(SlideContent.map(leftBlock))), speakerNotes)
+            AsciidoctorTitleAndTwoColumns(slideTitle, SlideContent.map(rightBlock), SlideContent.map(leftBlock), speakerNotes)
           } else {
             println("WARNING: a two-columns block must have exactly 2 nested blocks, ignoring!")
             null
           }
         } else {
-          val contents = SlideContents(contentBlocks.map { SlideContent.map(it) })
+          val slideContents = contentBlocks.map { SlideContent.map(it) }
+          val contents = if (slideContents.isNotEmpty()) {
+             slideContents.reduce { slide, acc ->
+              SlideContents(slide.contents + acc.contents)
+            }
+          } else {
+            SlideContents(emptyList())
+          }
           AsciidoctorTitleAndBodySlide(slideTitle, contents, speakerNotes)
         }
       } else {
@@ -56,7 +68,7 @@ object AsciidoctorSlides {
 sealed class AsciidoctorSlide(open val title: String?, open val speakerNotes: String? = null)
 sealed class SlideContent {
   companion object {
-    fun map(node: StructuralNode): SlideContent {
+    fun map(node: StructuralNode): SlideContents {
       if (node is org.asciidoctor.ast.List) {
         val textRanges = mutableListOf<TextRange>()
         var currentIndex = 0
@@ -67,24 +79,36 @@ sealed class SlideContent {
           // adds +1 because each line will be join with \n
           currentIndex += Parser.unescapeEntities(body.text(), true).length + 1
         }
-        return ListContent(node.items.joinToString("\n") {
+        return SlideContents(listOf(ListContent(node.items.joinToString("\n") {
           val text = (it as ListItem).text
           val doc = Jsoup.parseBodyFragment(text)
           Parser.unescapeEntities(doc.body().text(), true)
-        }, textRanges)
+        }, textRanges)))
       }
       if (node.context == "image") {
-        return ImageContent(node.document.getAttribute("imagesdir") as String + node.getAttribute("target") as String)
+        val url = node.document.getAttribute("imagesdir") as String + node.getAttribute("target") as String
+        if (url.startsWith("http://") || url.startsWith("https://")) {
+          val bufferedImage = ImageIO.read(URL(url))
+          val height = bufferedImage.height
+          val width = bufferedImage.width
+          return  SlideContents(listOf(ImageContent(url, height, width)))
+        }
+        throw IllegalArgumentException("Local images are not supported, the target must be a remote URL starting with http:// or https://")
       }
       if (node.context == "listing") {
         val htmlText = node.content as String
         val body = Jsoup.parseBodyFragment(htmlText).body()
-        return ListingContent(Parser.unescapeEntities(body.text(), true))
+        return SlideContents(listOf(ListingContent(Parser.unescapeEntities(body.text(), true))))
+      }
+      if (node.context == "open") {
+        return node.blocks.map { map(it) }.reduce { slide, acc ->
+          SlideContents(slide.contents + acc.contents)
+        }
       }
       val htmlText = node.content as String
       val body = Jsoup.parseBodyFragment(htmlText).body()
       val textRanges = parseHtmlText(htmlText, body)
-      return TextContent(Parser.unescapeEntities(body.text(), true), textRanges)
+      return SlideContents(listOf(TextContent(Parser.unescapeEntities(body.text(), true), textRanges)))
     }
 
     private fun parseHtmlText(htmlText: String, body: Element, initialIndex: Int = 0): List<TextRange> {
@@ -119,7 +143,7 @@ sealed class SlideContent {
 data class ListingContent(val text: String) : SlideContent() {
   val ranges = listOf(TextRange(TextToken(text, "code"), 0, text.length))
 }
-data class ImageContent(val url: String) : SlideContent()
+data class ImageContent(val url: String, val height: Int, val width: Int, val padding: Double = 0.0, val offsetX: Double = 0.0, val offsetY: Double = 0.0) : SlideContent()
 data class TextContent(val text: String, val ranges: List<TextRange> = emptyList()) : SlideContent()
 data class ListContent(val text: String, val ranges: List<TextRange> = emptyList()) : SlideContent()
 data class TextRange(val token: TextToken, val startIndex: Int, val endIndex: Int)
@@ -205,6 +229,65 @@ object SlidesGenerator {
     presentations.batchUpdate(presentation.presentationId, batchUpdatePresentationRequest).execute()
   }
 
+  private fun appendCreateImagesRequests(images: List<ImageContent>, presentation: Presentation, slide: Page, placeholder: PageElement, requests: MutableList<Request>) {
+    val packingSmithLayer = Layout.get(emptyMap())
+    // default padding if more than one image on the slide
+    val padding = if (images.size > 1) 10 else 0
+    for (image in images) {
+      packingSmithLayer.addItem(Item(image.height + (padding * 2), image.width + (padding * 2), meta = mapOf(
+        "url" to image.url,
+        "width" to image.width,
+        "height" to image.height,
+        "offsetX" to image.offsetX,
+        "offsetY" to image.offsetY,
+        "padding" to padding
+      )))
+    }
+    val box = GenericLayout.getBodyBoundingBox(presentation, placeholder)
+    val computedLayout = packingSmithLayer.export()
+    val scaleRatio = min(box.width / computedLayout.width, box.height / computedLayout.height)
+    val scaledWidth = computedLayout.width * scaleRatio
+    val scaledHeight = computedLayout.height * scaleRatio
+    val baseTranslateX = box.minX + (box.width - scaledWidth) / 2
+    val baseTranslateY = box.minY + (box.height - scaledHeight) / 2
+    for (item in computedLayout.items) {
+      val itemOffsetX = item.meta.getOrDefault("offsetX", 0.0) as Number
+      val itemOffsetY = item.meta.getOrDefault("offsetY", 0.0) as Number
+      val itemPadding = item.meta.getOrDefault("padding", 0.0) as Number
+      val width = item.meta["width"] as Int * scaleRatio
+      val height = item.meta["height"] as Int * scaleRatio
+      val translateX = baseTranslateX + (item.x + itemPadding.toDouble() + itemOffsetX.toDouble()) * scaleRatio
+      val translateY = baseTranslateY + (item.y + itemPadding.toDouble() + itemOffsetY.toDouble()) * scaleRatio
+      val request = Request()
+      val createImageRequest = CreateImageRequest()
+      val pageElementProperties = PageElementProperties()
+      pageElementProperties.pageObjectId = slide.objectId
+      val size = Size()
+      val heightDimension = Dimension()
+      heightDimension.magnitude = height
+      heightDimension.unit = "EMU"
+      size.height = heightDimension
+      val widthDimension = Dimension()
+      widthDimension.magnitude = width
+      widthDimension.unit = "EMU"
+      size.width = widthDimension
+      pageElementProperties.setSize(size)
+      val transform = AffineTransform()
+      transform.scaleX = 1.0
+      transform.scaleY = 1.0
+      transform.translateX = translateX
+      transform.translateY = translateY
+      transform.shearX = 0.0
+      transform.shearY = 0.0
+      transform.unit = "EMU"
+      pageElementProperties.transform = transform
+      createImageRequest.elementProperties = pageElementProperties
+      createImageRequest.url = item.meta["url"] as String
+      request.createImage = createImageRequest
+      requests.add(request)
+    }
+  }
+
   private fun appendCreateImageRequests(url: String, presentation: Presentation, slide: Page, placeholder: PageElement, requests: MutableList<Request>) {
     val box = GenericLayout.getBodyBoundingBox(presentation, placeholder)
     val request = Request()
@@ -237,11 +320,17 @@ object SlidesGenerator {
     requests.add(request)
   }
 
+  @Suppress("UNCHECKED_CAST")
   private fun addContent(contents: List<SlideContent>, presentation: Presentation, googleSlide: Page, placeholder: PageElement, requests: MutableList<Request>) {
     var currentIndex = 0
-    contents.forEachIndexed { index, content ->
+    val contentPerType = contents.groupBy { it.javaClass.simpleName }
+    val images = contentPerType[ImageContent::class.simpleName] as List<ImageContent>?
+    if (images != null && images.isNotEmpty()) {
+      appendCreateImagesRequests(images, presentation, googleSlide, placeholder, requests)
+    }
+    contents.filterNot { it is ImageContent }.forEachIndexed { index, content ->
       when (content) {
-        is ImageContent -> appendCreateImageRequests(content.url, presentation, googleSlide, placeholder, requests)
+        //is ImageContent -> appendCreateImageRequests(content.url, presentation, googleSlide, placeholder, requests)
         is TextContent -> {
           val text = if (index < contents.size) {
             content.text + "\n"
