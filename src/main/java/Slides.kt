@@ -79,11 +79,12 @@ sealed class SlideContent {
           // adds +1 because each line will be join with \n
           currentIndex += Parser.unescapeEntities(body.text(), true).length + 1
         }
+        val type = if (node.context == "ulist" && node.isOption("checklist")) "checklist" else node.context
         return SlideContents(listOf(ListContent(node.items.joinToString("\n") {
           val text = (it as ListItem).text
           val doc = Jsoup.parseBodyFragment(text)
           Parser.unescapeEntities(doc.body().text(), true)
-        }, textRanges)))
+        }, type, textRanges)))
       }
       if (node.context == "image") {
         val url = node.document.getAttribute("imagesdir") as String + node.getAttribute("target") as String
@@ -145,7 +146,7 @@ data class ListingContent(val text: String) : SlideContent() {
 }
 data class ImageContent(val url: String, val height: Int, val width: Int, val padding: Double = 0.0, val offsetX: Double = 0.0, val offsetY: Double = 0.0) : SlideContent()
 data class TextContent(val text: String, val ranges: List<TextRange> = emptyList()) : SlideContent()
-data class ListContent(val text: String, val ranges: List<TextRange> = emptyList()) : SlideContent()
+data class ListContent(val text: String, val type: String, val ranges: List<TextRange> = emptyList()) : SlideContent()
 data class TextRange(val token: TextToken, val startIndex: Int, val endIndex: Int)
 data class TextToken(val text: String, val type: String)
 data class SlideContents(val contents: List<SlideContent>)
@@ -342,7 +343,7 @@ object SlidesGenerator {
         }
         is ListContent -> {
           addInsertTextRequest(placeholder.objectId, content.text, currentIndex, content.ranges, requests)
-          addCreateParagraphBullets(placeholder.objectId, content.text, currentIndex, requests)
+          addCreateParagraphBullets(placeholder.objectId, content, currentIndex, requests)
         }
         is ListingContent -> {
           val text = if (index < contents.size) {
@@ -440,15 +441,19 @@ object SlidesGenerator {
     }
   }
 
-  private fun addCreateParagraphBullets(placeholderObjectId: String, text: String, startIndex: Int = 0, requests: MutableList<Request>) {
+  private fun addCreateParagraphBullets(placeholderObjectId: String, listContent: ListContent, startIndex: Int = 0, requests: MutableList<Request>) {
     val request = Request()
     val createParagraphBulletsRequest = CreateParagraphBulletsRequest()
     val textRange = Range()
     textRange.type = "FIXED_RANGE"
     textRange.startIndex = startIndex
-    textRange.endIndex = startIndex + text.length
+    textRange.endIndex = startIndex + listContent.text.length
     createParagraphBulletsRequest.textRange = textRange
-    createParagraphBulletsRequest.bulletPreset = "BULLET_DISC_CIRCLE_SQUARE"
+    createParagraphBulletsRequest.bulletPreset = when(listContent.type) {
+      "checklist" -> "BULLET_CHECKBOX"
+      "olist" -> "NUMBERED_DIGIT_ALPHA_ROMAN"
+      else -> "BULLET_DISC_CIRCLE_SQUARE"
+    }
     createParagraphBulletsRequest.objectId = placeholderObjectId
     request.createParagraphBullets = createParagraphBulletsRequest
     requests.add(request)
