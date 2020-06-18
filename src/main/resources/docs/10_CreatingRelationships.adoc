@@ -1,0 +1,401 @@
+= Creating Relationships
+:slug: 10-creating-relationships
+:doctype: book
+:toc: left
+:toclevels: 4
+:imagesdir: ../images
+:module-next-title: Deleting Nodes and Relationships
+
+== About this module
+
+[.notes]
+--
+You have learned how to create nodes in the graph, add and remove labels from them, and also add, remove, and update properties for a node.
+Next, you will learn how to create a relationship between two existing nodes in the graph.
+--
+
+At the end of this module, you should be able to write Cypher statements to:
+[square]
+* Create a relationship.
+* Create a relationship with properties.
+* Create nodes and relationships together.
+* Add properties to a relationship.
+* Remove properties from a relationship.
+
+== Syntax: Creating relationships
+
+[.notes]
+--
+As you have learned in the previous lessons, when you query the graph, you often query using connections between nodes (pattern). The connections capture the semantic relationships and context of the nodes in the graph.
+--
+
+Here is the simplified syntax for creating a relationship between two nodes referenced by the variables _x_ and _y_:
+
+[source.big,cypher]
+----
+CREATE (x)-[:REL_TYPE]->(y) 
+----
+
+[source.big,cypher]
+----
+CREATE (x)<-[:REL_TYPE]-(y)
+----
+
+[.notes]
+--
+When you create the relationship, it *must* have direction. You can query nodes for a relationship in either direction, but you must create the relationship with a direction.
+
+In most cases, unless you are connecting nodes at creation time, you will retrieve the two nodes, each with  their own variables, for example, by specifying a `WHERE` clause to find them, and then use the variables to connect them.
+--
+
+=== Example: Creating a relationship
+
+[.notes]
+--
+Here is an example. We want to connect the actor, _Michael Caine_ with the movie, _Batman Begins_. We first retrieve the nodes of interest, then we create the relationship:
+--
+
+[source,cypher]
+----
+MATCH (a:Person), (m:Movie)
+WHERE a.name = 'Michael Caine' AND m.title = 'Batman Begins'
+CREATE (a)-[:ACTED_IN]->(m)
+RETURN a, m
+----
+
+[.notes]
+--
+Before you run this Cypher code, you may see a warning in Neo4j Browser that you are creating a query that is a cartesian product that could potentially be a performance issue.
+--
+
+[.is-half.left]
+--
+image::CartesianBeforeCreateRelationship.png[CartesianBeforeCreateRelationship,width=700,align=center]
+--
+[.notes]
+--
+If you are familiar with the data in the graph and can be sure that the `MATCH` clauses will not retrieve large amounts of data, you can continue.
+
+In our case, we are simply looking up a particular _Person_ node and a particular _Movie_ node so we can create the relationship.
+--
+
+ifndef::backend-revealjs[]
+Here is the result of running this Cypher statement:
+endif::[]
+
+[.is-half.right]
+--
+image::CreateActedInRelationship.png[CreateActedInRelationship,width=600,align=center]
+--
+
+== Creating multiple relationships
+
+[.notes]
+--
+You can create multiple relationships at once by simply providing the pattern for the creation that includes the relationship types, their directions, and the nodes that you want to connect.
+
+Here is an example where we have already created _Person_ nodes for an actor, _Liam Neeson_, and a producer, _Benjamin Melniker_. We create two relationships in this example, one for _:ACTED_IN_ and one for _:PRODUCED_.
+--
+
+[source,cypher]
+----
+MATCH (a:Person), (m:Movie), (p:Person)
+WHERE a.name = 'Liam Neeson' AND 
+      m.title = 'Batman Begins' AND 
+      p.name = 'Benjamin Melniker'
+CREATE (a)-[:ACTED_IN]->(m)<-[:PRODUCED]-(p)
+RETURN a, m, p
+----
+
+ifndef::backend-revealjs[]
+Here is the result of running this Cypher statement:
+endif::[]
+
+image::CreateTwoRelationships.png[CreateTwoRelationships,width=700,align=center]
+
+[.small]
+--
+[NOTE]
+When you create relationships based upon a `MATCH` clause, you must be certain that only a single node is returned for the `MATCH`, otherwise multiple relationships will be created.
+--
+
+== Creating a relationship with properties
+
+[.notes]
+--
+Just as you can create a node with inline properties, you can create a relationship with inline properties.
+--
+
+[source,cypher]
+----
+MATCH (a:Person), (m:Movie)
+WHERE a.name = 'Katie Holmes' AND m.title = 'Batman Begins'
+CREATE (a)-[rel:ACTED_IN {roles: ['Rachel','Rachel Dawes']}->(m)
+RETURN a.name, rel, m.title
+----
+
+ifndef::backend-revealjs[]
+Here is the result of running this code:
+endif::[]
+
+image::KatieHolmsRoles.png[KatieHolmsRoles,width=900,align=center]
+
+== Creating nodes and relationships together
+
+[.notes]
+--
+You have learned how to create nodes using the `CREATE` clause, and how to find existing nodes to create relationships between them.
+In Cypher, you can combine the creation of the nodes and relationships in a single execution.
+--
+
+[source,cypher]
+----
+MATCH (m:Movie)
+WHERE m.title = 'Batman Begins'
+CREATE (a:Person)-[:ACTED_IN]->(m)
+SET a.name = 'Gary Oldman', a.born=1958
+RETURN a, m, p
+----
+
+ifndef::backend-revealjs[]
+Here is the result of running this Cypher statement:
+endif::[]
+
+image::CreateNodeAndRelationship.png[CreateNodeAndRelationship,width=1000,align=center]
+
+[.notes]
+--
+We retrieve the movie node for Batman Begins.
+Then we create a _Person_ node, _a_, with the _:ACTED_IN_ relationship to the movie.
+We then set two properties for the _Person_ node.
+
+You might use code like this when you are creating a script to load many actors and relate them to a movie.
+
+
+[NOTE]
+[.statement]
+What you must be careful of, however is that when you create the node, it is not a duplicate node.
+In addition, you must ensure that there is always only one _:ACTED_IN_ relationship created between two nodes.
+Later in this course, you will learn how automatically eliminate duplication of nodes and relationships.
+--
+
+== Syntax: Adding properties to relationships
+
+[.notes]
+--
+You can add properties to a relationship, just as you add properties to a node. You use the `SET` clause to do so.
+
+Here is the simplified syntax for adding properties to a relationship referenced by the variable _r_:
+--
+
+[source.big,cypher]
+----
+SET r.propertyName = value
+----
+
+[source.big,cypher]
+----
+SET r.propertyName1 = value1 , r.propertyName2 = value2
+----
+
+[source.big,cypher]
+----
+SET r = {propertyName1: value1, propertyName2: value2}
+----
+
+[source.big,cypher]
+----
+SET r += {propertyName1: value1, propertyName2: value2}
+----
+
+[.notes]
+--
+If the property does not exist, it is added to the relationship. If the property exists, its value is updated for the relationship. 
+When specify the JSON-style object for assignment to the relationship using `=`, the object must include all of the properties for the relationship, just as you need to do for nodes. If you use `+=`, you can add or update properties, just as you do for nodes.
+--
+
+=== Example: Adding properties to a relationship
+
+[.notes]
+--
+Here is an example where we will add the _roles_ property to the _:ACTED_IN_ relationship from _Christian Bale_ to _Batman Begins_ right after we have created the relationship:
+--
+
+[source,cypher]
+----
+MATCH (a:Person), (m:Movie)
+WHERE a.name = 'Christian Bale' AND m.title = 'Batman Begins'
+CREATE (a)-[rel:ACTED_IN]->(m)
+SET rel.roles = ['Bruce Wayne','Batman']
+RETURN a, rel, m
+----
+
+ifndef::backend-revealjs[]
+Here is the result of running this Cypher statement:
+endif::[]
+
+image::AddRelationshipWithRoles.png[AddRelationshipWithRoles,width=1000,align=center]
+
+[.notes]
+--
+The _roles_ property is a list so we add it as such.
+If the relationship had multiple properties, we could have added them as a comma separated list or as an object, like you can do for node properties.
+--
+
+=== Example: Adding properties inline
+
+[.notes]
+--
+Alternatively, you can also add properties to a relationship when the relationship is created. Here is another way to create and add the properties for the relationship:
+--
+
+[source,cypher]
+----
+MATCH (a:Person), (m:Movie)
+WHERE a.name = 'Christian Bale' AND m.title = 'Batman Begins'
+CREATE (a)-[:ACTED_IN {roles: ['Bruce Wayne', 'Batman']}]->(m)
+RETURN a, m
+----
+
+[.statement]
+By default, the graph engine will create a relationship between two nodes, even if one already exists.
+This could be dangerous so in your code make sure that if you use `CREATE` to create a relationship, it does not already exist.
+
+=== Example: Testing before creating relationship
+
+[.notes]
+--
+You can test to see if the relationship exists before you create it as follows:
+--
+
+[source,cypher]
+----
+MATCH (a:Person),(m:Movie)
+WHERE a.name = 'Christian Bale' AND
+      m.title = 'Batman Begins' AND
+      NOT exists((a)-[:ACTED_IN]->(m))
+CREATE (a)-[rel:ACTED_IN]->(m)
+SET rel.roles = ['Bruce Wayne','Batman']
+RETURN a, rel, m
+----
+
+[NOTE]
+[.statement]
+The best way to prevent duplication of relationships is to use the `MERGE` clause, rather than the `CREATE` clause.
+You will learn about merging data later in this course.
+
+== Removing properties from a relationship
+
+[.notes]
+--
+There are two ways that you can remove a property from a node. One way is to use the `REMOVE` keyword. The other way is to set the property's value to null, just as you do for properties of nodes.
+
+Suppose we have added the _:ACTED_IN_ relationship between _Christian Bale_ and the movie, _Batman Returns_ where the _roles_ property is added to the relationship.
+Here is an example where we remove the _roles_ property, yet keep the _:ACTED_IN_ relationship:
+--
+
+[source,cypher]
+----
+MATCH (a:Person)-[rel:ACTED_IN]->(m:Movie)
+WHERE a.name = 'Christian Bale' AND m.title = 'Batman Begins'
+REMOVE rel.roles
+RETURN a, rel, m
+----
+
+[.statement]
+Here is the result returned. An alternative to `REMOVE rel.roles` would be `SET rel.roles = null`.
+
+image::RemoveRoles.png[RemoveRoles,width=1000,align=center]
+
+[.student-exercise]
+== Exercise 10: Creating relationships
+
+In the query edit pane of Neo4j Browser, execute the browser command:
+
+kbd:[:play 4.0-intro-neo4j-exercises]
+
+and follow the instructions for Exercise 10.
+
+[NOTE]
+This exercise has 13 steps.
+Estimated time to complete: 45 minutes.
+
+[.quiz]
+== Check your understanding
+
+=== Question 1
+
+[.statement]
+Suppose our graph has a _Person_ node for Tom Jones and a _Movie_ node for the movie Life is Wonderful.
+We want to connect these two nodes with the _ACTED_IN_ relationship.
+What is wrong with this code?
+
+[source,cypher]
+----
+MATCH (a:Person), (m:Movie)
+WHERE a.name = 'Tom Jones' AND m.title = 'Life is Wonderful'
+CREATE (a)-[rel:ACTED_IN]-(m)
+----
+
+[.statement]
+Select the correct answer.
+
+[%interactive.answers]
+- [ ] `CREATE` should be replaced with `CREATE RELATIONSHIP`.
+- [ ] You cannot specify a variable for a relationship.
+- [x] Direction must be specified when you create the relationship.
+- [ ] You cannot return the variable, _rel_.
+
+=== Question 2
+
+[.statement]
+Given this code, what Cypher clause do you use to add the roles property to the relationship?
+
+[source,cypher]
+----
+CREATE (p:Person {name: 'Jack Brown'})
+CREATE (m:Movie {title: 'The Goods'})
+CREATE (p)-[r:ACTED_IN]->(m)
+?? r = {roles: ['The Villain']}
+----
+
+[.statement]
+Select the correct answer.
+[%interactive.answers]
+- [ ] `CREATE`
+- [ ] `CREATE PROPERTY`
+- [x] `SET`
+- [ ] `SET PROPERTY`
+
+=== Question 3
+
+[.statement]
+Assuming the nodes are successfully retrieved, how many relationships are created?
+
+[source,cypher]
+----
+MATCH (a:Person), (m:Movie)
+WHERE a.name = 'Tom Jones' AND m.title = 'Life is Wonderful'
+CREATE (a)-[rel:ACTED_IN]->(m)
+CREATE (a)-[rel:ACTED_IN {roles: ['The Villain']}]->(m)
+CREATE (a)-[rel:ACTED_IN {roles: ['The Villain','Joe']}]->(m)
+----
+
+[.statement]
+Select the correct answer.
+[%interactive.answers]
+- [ ] None
+- [ ] One
+- [ ] Two
+- [x] Three
+
+[.summary]
+== Summary
+
+You should now be able to write Cypher statements to:
+[square]
+* Create a relationship.
+* Create a relationship with properties.
+* Create nodes and relationships together.
+* Add properties to a relationship.
+* Remove properties from a relationship.

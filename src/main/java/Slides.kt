@@ -1,9 +1,7 @@
 import com.google.api.services.slides.v1.model.*
 import layout.Item
 import layout.Layout
-import org.asciidoctor.Asciidoctor.Factory.create
 import org.asciidoctor.ast.ListItem
-import org.asciidoctor.ast.Section
 import org.asciidoctor.ast.StructuralNode
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Element
@@ -16,66 +14,9 @@ import kotlin.math.min
 
 
 fun main() {
-  val asciidoctorPresentation = AsciidoctorSlides.generateFromAsciiDoc()
+  val asciidoctorPresentation = AsciidoctorPresentation.load()
   println(asciidoctorPresentation)
   SlidesGenerator.run(asciidoctorPresentation)
-}
-
-object AsciidoctorSlides {
-
-  fun generateFromAsciiDoc(): AsciidoctorPresentation {
-    val asciidoctor = create()
-    val document = asciidoctor.load(AsciidoctorSlides::class.java.getResource("/4.0-implementing-graph-data-models.adoc").readText(), mapOf())
-    val slides = document.blocks.mapNotNull { block ->
-      if (block is Section) {
-        val slideTitle = if (block.title == "!") {
-          null
-        } else {
-          // FIXME: extract text transformation + range
-          val doc = Jsoup.parseBodyFragment(block.title)
-          doc.text()
-        }
-        val slideBlocks = block.blocks
-        val (speakerNotesBlocks, contentBlocks) = slideBlocks.partition { it.roles.contains("notes") }
-        val speakerNotes = speakerNotesBlocks.joinToString("\n") {
-          val html = it.content as String
-          val doc = Jsoup.parseBodyFragment(html)
-          doc.text()
-        }
-        if (contentBlocks.size == 1 && contentBlocks.first().roles.contains("two-columns")) {
-          val twoColumnsBlock = contentBlocks.first()
-          if (twoColumnsBlock.blocks.size == 2) {
-            val leftBlock = twoColumnsBlock.blocks[0]
-            val rightBlock = twoColumnsBlock.blocks[1]
-            val rightColumnContents = SlideContent.map(rightBlock)
-            val leftColumnContents = SlideContent.map(leftBlock)
-            AsciidoctorTitleAndTwoColumns(
-              title = slideTitle,
-              rightColumn = rightColumnContents,
-              leftColumn = leftColumnContents,
-              speakerNotes = speakerNotes + rightColumnContents.speakerNotes.orEmpty() + leftColumnContents.speakerNotes.orEmpty()
-            )
-          } else {
-            println("WARNING: a two-columns block must have exactly 2 nested blocks, ignoring!")
-            null
-          }
-        } else {
-          val slideContents = contentBlocks.map { SlideContent.map(it) }
-          val contents = if (slideContents.isNotEmpty()) {
-            slideContents.reduce { slide, acc ->
-              SlideContents(slide.contents + acc.contents, slide.speakerNotes.orEmpty() + acc.speakerNotes.orEmpty())
-            }
-          } else {
-            SlideContents(emptyList())
-          }
-          AsciidoctorTitleAndBodySlide(slideTitle, contents, speakerNotes + contents.speakerNotes)
-        }
-      } else {
-        null
-      }
-    }
-    return AsciidoctorPresentation(document.doctitle, slides)
-  }
 }
 
 sealed class AsciidoctorSlide(open val title: String?, open val speakerNotes: String? = null)
@@ -102,7 +43,6 @@ sealed class SlideContent {
           for (item in node.items) {
             if (item.hasAttribute("checked")) {
               val html = (item as ListItem).text
-              println("html $html")
               val doc = Jsoup.parseBodyFragment(html)
               answers += "- ${doc.text()}\n"
             }
@@ -151,16 +91,23 @@ sealed class SlideContent {
         return SlideContents(listOf(ListingContent(code.replace(Regex("\n"), "\u000b"), fontSize)))
       }
       if (node.context == "open") {
-        return node.blocks.map { map(it) }.reduce { slide, acc ->
-          SlideContents(slide.contents + acc.contents, slide.speakerNotes.orEmpty() + acc.speakerNotes.orEmpty())
+        val list = node.blocks.map { map(it) }
+        if (list.isNotEmpty()) {
+          return list.reduce { slide, acc ->
+            SlideContents(slide.contents + acc.contents, slide.speakerNotes.orEmpty() + acc.speakerNotes.orEmpty())
+          }
         }
+        // FIXME: list empty???
+        return SlideContents(listOf(TextContent("")))
       }
-      val htmlText = node.content as String
+      // FIXME: null content???
+      val htmlText = node.content as String? ?: ""
       val body = Jsoup.parseBodyFragment(htmlText).body()
       val textRanges = parseHtmlText(htmlText, body)
       val roles = node.roles + node.parent.roles
+      val text = Parser.unescapeEntities(body.text(), true)
       return SlideContents(listOf(TextContent(
-        text = Parser.unescapeEntities(body.text(), true),
+        text = text,
         ranges = textRanges,
         roles = roles
       )))
@@ -209,15 +156,11 @@ data class SlideContents(val contents: List<SlideContent>, val speakerNotes: Str
 data class AsciidoctorTitleAndTwoColumns(override val title: String?,
                                          val rightColumn: SlideContents,
                                          val leftColumn: SlideContents,
-                                         override val speakerNotes: String? = null)
-  : AsciidoctorSlide(title, speakerNotes)
+                                         override val speakerNotes: String? = null) : AsciidoctorSlide(title, speakerNotes)
 
 data class AsciidoctorTitleAndBodySlide(override val title: String?,
                                         val body: SlideContents,
-                                        override val speakerNotes: String? = null)
-  : AsciidoctorSlide(title, speakerNotes)
-
-data class AsciidoctorPresentation(val title: String, val slides: List<AsciidoctorSlide>)
+                                        override val speakerNotes: String? = null) : AsciidoctorSlide(title, speakerNotes)
 
 object SlidesGenerator {
   fun run(asciidoctorPresentation: AsciidoctorPresentation) {
