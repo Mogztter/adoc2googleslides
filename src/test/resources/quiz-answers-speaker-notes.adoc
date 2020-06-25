@@ -1,0 +1,30 @@
+= Introduction to Cypher
+
+== Check your understanding
+
+=== Question 1
+
+[.statement]
+Suppose you have a graph that contains nodes representing customers and other business entities for your application.
+The node label in the database for a customer is _Customer_. Each _Customer_ node has a property named _email_ that contains the customer's email address.
+What Cypher query do you execute to return the email addresses for all customers in the graph?
+
+Select the correct answer.
+
+[%interactive.answers]
+- [ ] [src-cypher]`MATCH (n) RETURN n.Customer.email`
+- [x] [src-cypher]`MATCH (c:Customer) RETURN c.email`
+- [ ] [src-cypher]`MATCH (Customer) RETURN email`
+- [ ] [src-cypher]`MATCH (c) RETURN Customer.email`
+
+=== Question 2
+
+When must you use a variable in a `MATCH` clause?
+
+Select the correct answer.
+
+[%interactive.answers]
+- [ ] When you want to query the graph using a node label.
+- [ ] When you specify a property value to match the query.
+- [x] When you want to use the node or relationship to return a result.
+- [ ] When the query involves 2 types of nodes.

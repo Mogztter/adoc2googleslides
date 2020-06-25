@@ -1,181 +1,46 @@
+package org.asciidoctor.googleslides
+
+import com.google.api.client.auth.oauth2.Credential
+import com.google.api.client.extensions.java6.auth.oauth2.AuthorizationCodeInstalledApp
+import com.google.api.client.extensions.jetty.auth.oauth2.LocalServerReceiver
+import com.google.api.client.googleapis.auth.oauth2.GoogleAuthorizationCodeFlow
+import com.google.api.client.googleapis.auth.oauth2.GoogleClientSecrets
+import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport
+import com.google.api.client.http.javanet.NetHttpTransport
+import com.google.api.client.json.JsonFactory
+import com.google.api.client.json.jackson2.JacksonFactory
+import com.google.api.client.util.store.FileDataStoreFactory
+import com.google.api.services.slides.v1.Slides
+import com.google.api.services.slides.v1.SlidesScopes
 import com.google.api.services.slides.v1.model.*
-import layout.Item
-import layout.Layout
-import org.asciidoctor.ast.ListItem
-import org.asciidoctor.ast.StructuralNode
-import org.jsoup.Jsoup
-import org.jsoup.nodes.Element
-import org.jsoup.nodes.TextNode
-import org.jsoup.parser.Parser
-import java.net.URL
+import org.asciidoctor.googleslides.layout.GenericLayout
+import org.asciidoctor.googleslides.layout.Item
+import org.asciidoctor.googleslides.layout.Layout
+import org.slf4j.LoggerFactory
+import java.io.File
+import java.io.FileNotFoundException
+import java.io.IOException
+import java.io.InputStreamReader
 import java.util.*
-import javax.imageio.ImageIO
 import kotlin.math.min
 
 
-fun main() {
-  val asciidoctorPresentation = AsciidoctorPresentation.load()
-  println(asciidoctorPresentation)
-  SlidesGenerator.run(asciidoctorPresentation)
-}
+object GoogleSlidesGenerator {
+  private val logger = LoggerFactory.getLogger(GoogleSlidesGenerator::class.java)
 
-sealed class AsciidoctorSlide(open val title: String?, open val speakerNotes: String? = null)
-sealed class SlideContent {
-  companion object {
-    fun map(node: StructuralNode): SlideContents {
-      if (node is org.asciidoctor.ast.List) {
-        val textRanges = mutableListOf<TextRange>()
-        var currentIndex = 0
-        for (item in node.items) {
-          val htmlText = (item as ListItem).text
-          val body = Jsoup.parseBodyFragment(htmlText).body()
-          textRanges.addAll(parseHtmlText(htmlText, body, currentIndex))
-          // adds +1 because each line will be join with \n
-          currentIndex += Parser.unescapeEntities(body.text(), true).length + 1
-        }
-        val type = if (node.context == "ulist" && node.isOption("checklist")) {
-          "checklist"
-        } else {
-          node.context
-        }
-        val speakerNotes = if (type == "checklist" && node.hasRole("answers")) {
-          var answers = "\nCorrect answer(s):\n"
-          for (item in node.items) {
-            if (item.hasAttribute("checked")) {
-              val html = (item as ListItem).text
-              val doc = Jsoup.parseBodyFragment(html)
-              answers += "- ${doc.text()}\n"
-            }
-          }
-          answers
-        } else {
-          ""
-        }
-        val rawText = node.items.joinToString("\n") {
-          val text = (it as ListItem).text
-          val doc = Jsoup.parseBodyFragment(text)
-          Parser.unescapeEntities(doc.body().text(), true)
-        }
-        val listContent = ListContent(
-          text = rawText,
-          type = type,
-          ranges = textRanges,
-          roles = node.roles + node.parent.roles
-        )
-        return SlideContents(listOf(listContent), speakerNotes)
-      }
-      if (node.context == "image") {
-        val url = node.document.getAttribute("imagesdir") as String + node.getAttribute("target") as String
-        if (url.startsWith("http://") || url.startsWith("https://")) {
-          val bufferedImage = ImageIO.read(URL(url))
-          val height = bufferedImage.height
-          val width = bufferedImage.width
-          return SlideContents(listOf(ImageContent(url, height, width)))
-        }
-        throw IllegalArgumentException("Local images are not supported, the target must be a remote URL starting with http:// or https://")
-      }
-      if (node.context == "listing") {
-        val rawText = node.content as String
-        val code = Parser.unescapeEntities(rawText, true)
-        val maxLineLength = code.split("\n").map { it.length }.max() ?: 0
-        // remind: optimized for Roboto Mono
-        val fontSize = when {
-          maxLineLength > 121 -> 8
-          maxLineLength > 109 -> 9
-          maxLineLength > 99 -> 10
-          maxLineLength > 91 -> 11
-          maxLineLength > 84 -> 12
-          maxLineLength > 78 -> 13
-          else -> 14
-        }
-        return SlideContents(listOf(ListingContent(code.replace(Regex("\n"), "\u000b"), fontSize)))
-      }
-      if (node.context == "open") {
-        val list = node.blocks.map { map(it) }
-        if (list.isNotEmpty()) {
-          return list.reduce { slide, acc ->
-            SlideContents(slide.contents + acc.contents, slide.speakerNotes.orEmpty() + acc.speakerNotes.orEmpty())
-          }
-        }
-        // FIXME: list empty???
-        return SlideContents(listOf(TextContent("")))
-      }
-      // FIXME: null content???
-      val htmlText = node.content as String? ?: ""
-      val body = Jsoup.parseBodyFragment(htmlText).body()
-      val textRanges = parseHtmlText(htmlText, body)
-      val roles = node.roles + node.parent.roles
-      val text = Parser.unescapeEntities(body.text(), true)
-      return SlideContents(listOf(TextContent(
-        text = text,
-        ranges = textRanges,
-        roles = roles
-      )))
-    }
-
-    private fun parseHtmlText(htmlText: String, body: Element, initialIndex: Int = 0): List<TextRange> {
-      val result = mutableListOf<TextRange>()
-      val textWithoutHTML = body.text()
-      if (textWithoutHTML == htmlText) {
-        return result
-      }
-      // diff! add a text range to replace the inline HTML with a style
-      var currentIndex = initialIndex
-      for (htmlNode in body.childNodes()) {
-        val textToken = when (htmlNode) {
-          is TextNode -> {
-            val text = Parser.unescapeEntities(htmlNode.text(), true)
-            TextToken(text, "text")
-          }
-          is Element -> {
-            val text = Parser.unescapeEntities(htmlNode.text(), true)
-            TextToken(text, htmlNode.tagName())
-          }
-          else -> throw IllegalArgumentException("Unable to parse: $htmlNode")
-        }
-        val length = textToken.text.length
-        result.add(TextRange(textToken, currentIndex, endIndex = currentIndex + length))
-        currentIndex += length
-      }
-      return result
-    }
-  }
-}
-
-data class ListingContent(val text: String, val fontSize: Int) : SlideContent() {
-  val ranges = listOf(TextRange(TextToken(text, "code"), 0, text.length))
-}
-
-data class ImageContent(val url: String, val height: Int, val width: Int, val padding: Double = 0.0, val offsetX: Double = 0.0, val offsetY: Double = 0.0) : SlideContent()
-data class TextContent(val text: String, val ranges: List<TextRange> = emptyList(), val roles: List<String> = emptyList(), val fontSize: Int? = null) : SlideContent()
-data class ListContent(val text: String, val type: String, val ranges: List<TextRange> = emptyList(), val roles: List<String> = emptyList()) : SlideContent()
-data class TextRange(val token: TextToken, val startIndex: Int, val endIndex: Int)
-data class TextToken(val text: String, val type: String)
-data class SlideContents(val contents: List<SlideContent>, val speakerNotes: String? = null)
-
-data class AsciidoctorTitleAndTwoColumns(override val title: String?,
-                                         val rightColumn: SlideContents,
-                                         val leftColumn: SlideContents,
-                                         override val speakerNotes: String? = null) : AsciidoctorSlide(title, speakerNotes)
-
-data class AsciidoctorTitleAndBodySlide(override val title: String?,
-                                        val body: SlideContents,
-                                        override val speakerNotes: String? = null) : AsciidoctorSlide(title, speakerNotes)
-
-object SlidesGenerator {
-  fun run(asciidoctorPresentation: AsciidoctorPresentation) {
-    val service = Client.service
+  fun generate(slideDeck: SlideDeck): String {
+    val service = GoogleSlidesApi.service
     val presentations = service.presentations()
-    var presentation = Presentation().setTitle(asciidoctorPresentation.title)
+    var googleSlidesPresentation = Presentation().setTitle(slideDeck.title)
 
     // create a presentation
-    presentation = presentations.create(presentation)
+    googleSlidesPresentation = presentations.create(googleSlidesPresentation)
       .setFields("layouts,masters,slides,presentationId")
       .execute()
-    println("Created presentation with ID: ${presentation.presentationId}")
+    logger.info("Created presentation with ID: ${googleSlidesPresentation.presentationId}")
 
-    val layouts = presentation.layouts
-    val slides = presentation.slides
+    val layouts = googleSlidesPresentation.layouts
+    val slides = googleSlidesPresentation.slides
 
     // Create slides
     val batchUpdatePresentationRequest = BatchUpdatePresentationRequest()
@@ -183,52 +48,53 @@ object SlidesGenerator {
     deleteExistingSlides(slides, requests)
 
     addCreateTitleSlide(layouts, requests)
-    for (slide in asciidoctorPresentation.slides) {
-      if (slide is AsciidoctorTitleAndBodySlide) {
+    for (slide in slideDeck.slides) {
+      if (slide is TitleAndBodySlide) {
         addCreateTitleAndBodySlide(layouts, requests)
-      } else if (slide is AsciidoctorTitleAndTwoColumns) {
+      } else if (slide is TitleAndTwoColumns) {
         addCreateTwoColumnsSlide(layouts, requests)
       }
     }
     batchUpdatePresentationRequest.requests = requests
-    presentations.batchUpdate(presentation.presentationId, batchUpdatePresentationRequest).execute()
+    presentations.batchUpdate(googleSlidesPresentation.presentationId, batchUpdatePresentationRequest).execute()
 
     // Reload presentation
-    presentation = presentations.get(presentation.presentationId).execute()
+    googleSlidesPresentation = presentations.get(googleSlidesPresentation.presentationId).execute()
 
     // Populate slides
     requests = mutableListOf()
 
-    val firstSlideTitle = presentation.slides[0].pageElements.first { it.shape.placeholder.type == "CENTERED_TITLE" }
-    addInsertTextRequest(firstSlideTitle.objectId, TextContent(asciidoctorPresentation.title), 0, requests)
+    val firstSlideTitle = googleSlidesPresentation.slides[0].pageElements.first { it.shape.placeholder.type == "CENTERED_TITLE" }
+    addInsertTextRequest(firstSlideTitle.objectId, TextContent(googleSlidesPresentation.title), 0, requests)
 
-    asciidoctorPresentation.slides.forEachIndexed { index, asciidoctorSlide ->
-      val googleSlide = presentation.slides[index + 1]
+    slideDeck.slides.forEachIndexed { index, slide ->
+      val googleSlide = googleSlidesPresentation.slides[index + 1]
       val speakerNotesObjectId = googleSlide.slideProperties.notesPage.notesProperties.speakerNotesObjectId
-      if (speakerNotesObjectId != null && asciidoctorSlide.speakerNotes != null && asciidoctorSlide.speakerNotes!!.isNotBlank()) {
-        addInsertTextRequest(speakerNotesObjectId, TextContent(asciidoctorSlide.speakerNotes!!), 0, requests)
+      if (speakerNotesObjectId != null && slide.speakerNotes != null && slide.speakerNotes!!.isNotBlank()) {
+        addInsertTextRequest(speakerNotesObjectId, TextContent(slide.speakerNotes!!), 0, requests)
       }
-      if (asciidoctorSlide is AsciidoctorTitleAndBodySlide) {
+      if (slide is TitleAndBodySlide) {
         val slideTitle = googleSlide.pageElements.first { it.shape.placeholder.type == "TITLE" }
         val slideBody = googleSlide.pageElements.first { it.shape.placeholder.type == "BODY" }
-        addInsertTextRequest(slideTitle.objectId, TextContent(asciidoctorSlide.title.orEmpty()), 0, requests)
-        addContent(asciidoctorSlide.body.contents, presentation, googleSlide, slideBody, requests)
-      } else if (asciidoctorSlide is AsciidoctorTitleAndTwoColumns) {
+        addInsertTextRequest(slideTitle.objectId, TextContent(slide.title.orEmpty()), 0, requests)
+        addContent(slide.body.contents, googleSlidesPresentation, googleSlide, slideBody, requests)
+      } else if (slide is TitleAndTwoColumns) {
         val slideTitle = googleSlide.pageElements.first { it.shape.placeholder.type == "TITLE" }
         val bodies = googleSlide.pageElements.filter { it.shape.placeholder.type == "BODY" }
         val slideLeftBody = bodies[0]
         val slideRightBody = bodies[1]
-        addInsertTextRequest(slideTitle.objectId, TextContent(asciidoctorSlide.title.orEmpty()), 0, requests)
-        addContent(asciidoctorSlide.leftColumn.contents, presentation, googleSlide, slideLeftBody, requests)
-        addContent(asciidoctorSlide.rightColumn.contents, presentation, googleSlide, slideRightBody, requests)
+        addInsertTextRequest(slideTitle.objectId, TextContent(slide.title.orEmpty()), 0, requests)
+        addContent(slide.leftColumn.contents, googleSlidesPresentation, googleSlide, slideLeftBody, requests)
+        addContent(slide.rightColumn.contents, googleSlidesPresentation, googleSlide, slideRightBody, requests)
       }
     }
-    println(requests)
+    logger.debug("batchUpdatePresentationRequest.requests: $requests")
     batchUpdatePresentationRequest.requests = requests
-    presentations.batchUpdate(presentation.presentationId, batchUpdatePresentationRequest).execute()
+    presentations.batchUpdate(googleSlidesPresentation.presentationId, batchUpdatePresentationRequest).execute()
+    return googleSlidesPresentation.presentationId
   }
 
-  private fun appendCreateImagesRequests(images: List<ImageContent>, presentation: Presentation, slide: Page, placeholder: PageElement, requests: MutableList<Request>) {
+  private fun appendCreateImagesRequests(images: List<ImageContent>, presentation: com.google.api.services.slides.v1.model.Presentation, slide: Page, placeholder: PageElement, requests: MutableList<Request>) {
     val packingSmithLayer = Layout.get(emptyMap())
     // default padding if more than one image on the slide
     val padding = if (images.size > 1) 10 else 0
@@ -288,7 +154,7 @@ object SlidesGenerator {
   }
 
   @Suppress("UNCHECKED_CAST")
-  private fun addContent(contents: List<SlideContent>, presentation: Presentation, googleSlide: Page, placeholder: PageElement, requests: MutableList<Request>) {
+  private fun addContent(contents: List<SlideContent>, presentation: com.google.api.services.slides.v1.model.Presentation, googleSlide: Page, placeholder: PageElement, requests: MutableList<Request>) {
     var currentIndex = 0
     val contentPerType = contents.groupBy { it.javaClass.simpleName }
     val images = contentPerType[ImageContent::class.simpleName] as List<ImageContent>?
@@ -392,7 +258,7 @@ object SlidesGenerator {
         textStyle.bold = true
       } else {
         // ignore
-        println("Unsupported token type: ${textRange.token.type}")
+        logger.info("Unsupported token type: ${textRange.token.type}")
         continue
       }
       val textRangeRequest = Request()
@@ -451,5 +317,50 @@ object SlidesGenerator {
     createParagraphBulletsRequest.objectId = placeholderObjectId
     request.createParagraphBullets = createParagraphBulletsRequest
     requests.add(request)
+  }
+}
+
+object GoogleSlidesApi {
+  private const val APPLICATION_NAME = "Google Slides API Java Quickstart"
+  private val JSON_FACTORY: JsonFactory = JacksonFactory.getDefaultInstance()
+  private const val TOKENS_DIRECTORY_PATH = "tokens"
+
+  /**
+   * Global instance of the scopes required by this quickstart.
+   * If modifying these scopes, delete your previously saved tokens/ folder.
+   */
+  private val SCOPES = listOf(SlidesScopes.PRESENTATIONS)
+  private const val CREDENTIALS_FILE_PATH = "/credentials.json"
+
+  val service: Slides
+    get() {
+      // Build a new authorized API client service.
+      val httpTransport = GoogleNetHttpTransport.newTrustedTransport()
+      return Slides.Builder(httpTransport, JSON_FACTORY, getCredentials(httpTransport))
+        .setApplicationName(APPLICATION_NAME)
+        .build()
+    }
+
+  /**
+   * Creates an authorized Credential object.
+   * @param HTTP_TRANSPORT The network HTTP Transport.
+   * @return An authorized Credential object.
+   * @throws IOException If the credentials.json file cannot be found.
+   */
+  @Throws(IOException::class)
+  private fun getCredentials(HTTP_TRANSPORT: NetHttpTransport): Credential {
+    // Load client secrets.
+    val inputStream = GoogleSlidesApi::class.java.getResourceAsStream(CREDENTIALS_FILE_PATH)
+      ?: throw FileNotFoundException("Resource not found: $CREDENTIALS_FILE_PATH")
+    val clientSecrets = GoogleClientSecrets.load(JSON_FACTORY, InputStreamReader(inputStream))
+
+    // Build flow and trigger user authorization request.
+    val flow = GoogleAuthorizationCodeFlow.Builder(
+      HTTP_TRANSPORT, JSON_FACTORY, clientSecrets, SCOPES)
+      .setDataStoreFactory(FileDataStoreFactory(File(TOKENS_DIRECTORY_PATH)))
+      .setAccessType("offline")
+      .build()
+    val receiver = LocalServerReceiver.Builder().setPort(8888).build()
+    return AuthorizationCodeInstalledApp(flow, receiver).authorize("user")
   }
 }

@@ -1,4 +1,7 @@
 import org.asciidoctor.Asciidoctor
+import org.asciidoctor.googleslides.ListContent
+import org.asciidoctor.googleslides.ListingContent
+import org.asciidoctor.googleslides.SlideContent
 import org.assertj.core.api.Assertions.assertThat
 import kotlin.test.Test
 
@@ -8,9 +11,9 @@ class SlideContentTest {
   private val asciidoctor = Asciidoctor.Factory.create()
 
   @Test
-  fun should_map_ulist() {
-    val document = asciidoctor.load(AsciidoctorSlides::class.java.getResource("/list-items-with-inline-styles.adoc").readText(), mapOf())
-    val slideContent = SlideContent.map(document.findBy(mapOf("context" to ":ulist")).first())
+  fun should_extract_ulist() {
+    val document = asciidoctor.load(SlideContentTest::class.java.getResource("/list-items-with-inline-styles.adoc").readText(), mapOf())
+    val slideContent = SlideContent.from(document.findBy(mapOf("context" to ":ulist")).first())
     val listContents = slideContent.contents.filterIsInstance(ListContent::class.java)
     assertThat(listContents).isNotEmpty
     assertThat(listContents).hasSize(1)
@@ -34,11 +37,10 @@ ASCII art to represent nodes and relationships""")
     assertThat(matchCodeTextRange.endIndex).isEqualTo(91)
   }
 
-
   @Test
-  fun should_map_code_listing() {
-    val document = asciidoctor.load(AsciidoctorSlides::class.java.getResource("/code-listing.adoc").readText(), mapOf())
-    val slideContent = SlideContent.map(document.findBy(mapOf("context" to ":listing")).first())
+  fun should_extract_code_listing() {
+    val document = asciidoctor.load(SlideContentTest::class.java.getResource("/code-listing.adoc").readText(), mapOf())
+    val slideContent = SlideContent.from(document.findBy(mapOf("context" to ":listing")).first())
     val listingContents = slideContent.contents.filterIsInstance(ListingContent::class.java)
     assertThat(listingContents).isNotEmpty
     assertThat(listingContents).hasSize(1)
