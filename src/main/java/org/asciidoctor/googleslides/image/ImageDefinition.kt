@@ -1,4 +1,4 @@
-package image
+package org.asciidoctor.googleslides.image
 
 data class RemoteImageDefinition(
   val url: String,

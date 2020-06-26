@@ -1,0 +1,18 @@
+= Introduction to Cypher
+
+== Overview
+
+At the end of this module, you should be able to write Cypher statements to:
+
+* Retrieve nodes from the graph.
+* Filter nodes retrieved using labels and property values of nodes.
+* Retrieve property values from nodes in the graph.
+* Filter nodes retrieved using relationships.
+
+[.notes]
+--
+Show the students:
+
+* Neo4j Developer Manual: https://neo4j.com/docs/cypher-manual/current/
+* Cypher RefCard: http://neo4j.com/docs/cypher-refcard/current/
+--

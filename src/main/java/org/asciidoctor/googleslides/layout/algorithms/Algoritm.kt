@@ -1,6 +1,6 @@
-package layout.algorithms
+package org.asciidoctor.googleslides.layout.algorithms
 
-import layout.Item
+import org.asciidoctor.googleslides.layout.Item
 
 
 interface Algorithm {

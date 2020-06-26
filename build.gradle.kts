@@ -12,6 +12,7 @@ dependencies {
   implementation("com.google.apis:google-api-services-slides:v1-rev294-1.23.0")
   implementation("org.asciidoctor:asciidoctorj:2.2.0")
   implementation("org.jsoup:jsoup:1.13.1")
+  implementation("org.slf4j:slf4j-api:1.7.30")
   // Align versions of all Kotlin components
   implementation(platform("org.jetbrains.kotlin:kotlin-bom"))
   // Use the Kotlin JDK 8 standard library.
@@ -19,6 +20,7 @@ dependencies {
   testImplementation("org.jetbrains.kotlin:kotlin-test")
   testImplementation("org.jetbrains.kotlin:kotlin-test-junit")
   testImplementation("org.assertj:assertj-core:3.11.1")
+  testImplementation("ch.qos.logback:logback-classic:1.2.3")
 }
 
 application {

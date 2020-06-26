@@ -1,8 +1,8 @@
-package layout.smiths
+package org.asciidoctor.googleslides.layout.smiths
 
 import jdk.nashorn.internal.objects.Global.Infinity
-import layout.Item
-import layout.algorithms.Algorithm
+import org.asciidoctor.googleslides.layout.Item
+import org.asciidoctor.googleslides.layout.algorithms.Algorithm
 import kotlin.math.min
 
 data class PackingStats(val minX: Double, val minY: Double, val maxX: Double, val maxY: Double)
@@ -47,7 +47,7 @@ class PackingSmith(private val algorithm: Algorithm, options: Map<String, String
       val minYArr = items.map { it.y }
       val maxXArr = items.map { it.x + it.width }
       val maxYArr = items.map { it.y + it.height }
-      return PackingStats(minXArr.max() ?: 0.0, minYArr.max()?: 0.0, maxXArr.max()?: 0.0, maxYArr.max()?: 0.0)
+      return PackingStats(minXArr.max() ?: 0.0, minYArr.max() ?: 0.0, maxXArr.max() ?: 0.0, maxYArr.max() ?: 0.0)
     }
 
     private fun processItems(items: List<Item>, sort: Boolean, algorithm: Algorithm): List<Item> {
