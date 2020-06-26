@@ -8,7 +8,6 @@ import java.time.format.DateTimeFormatter
 plugins {
   `maven-publish`
   id("com.jfrog.bintray") version "1.8.4"
-  application
   `kotlin-dsl`
 }
 
@@ -27,11 +26,6 @@ dependencies {
   testImplementation("org.jetbrains.kotlin:kotlin-test-junit")
   testImplementation("org.assertj:assertj-core:3.11.1")
   testImplementation("ch.qos.logback:logback-classic:1.2.3")
-}
-
-application {
-  mainClassName = "Slides"
-  applicationName = "adoc2googleslides"
 }
 
 java {
