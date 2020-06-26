@@ -19,8 +19,8 @@ import org.asciidoctor.googleslides.layout.Layout
 import org.slf4j.LoggerFactory
 import java.io.File
 import java.io.FileNotFoundException
+import java.io.FileReader
 import java.io.IOException
-import java.io.InputStreamReader
 import java.util.*
 import kotlin.math.min
 
@@ -28,9 +28,8 @@ import kotlin.math.min
 object GoogleSlidesGenerator {
   private val logger = LoggerFactory.getLogger(GoogleSlidesGenerator::class.java)
 
-  fun generate(slideDeck: SlideDeck): String {
-    val service = GoogleSlidesApi.service
-    val presentations = service.presentations()
+  fun generate(slideDeck: SlideDeck, slidesService: Slides): String {
+    val presentations = slidesService.presentations()
     var googleSlidesPresentation = Presentation().setTitle(slideDeck.title)
 
     // create a presentation
@@ -94,7 +93,7 @@ object GoogleSlidesGenerator {
     return googleSlidesPresentation.presentationId
   }
 
-  private fun appendCreateImagesRequests(images: List<ImageContent>, presentation: com.google.api.services.slides.v1.model.Presentation, slide: Page, placeholder: PageElement, requests: MutableList<Request>) {
+  private fun appendCreateImagesRequests(images: List<ImageContent>, presentation: Presentation, slide: Page, placeholder: PageElement, requests: MutableList<Request>) {
     val packingSmithLayer = Layout.get(emptyMap())
     // default padding if more than one image on the slide
     val padding = if (images.size > 1) 10 else 0
@@ -154,7 +153,7 @@ object GoogleSlidesGenerator {
   }
 
   @Suppress("UNCHECKED_CAST")
-  private fun addContent(contents: List<SlideContent>, presentation: com.google.api.services.slides.v1.model.Presentation, googleSlide: Page, placeholder: PageElement, requests: MutableList<Request>) {
+  private fun addContent(contents: List<SlideContent>, presentation: Presentation, googleSlide: Page, placeholder: PageElement, requests: MutableList<Request>) {
     var currentIndex = 0
     val contentPerType = contents.groupBy { it.javaClass.simpleName }
     val images = contentPerType[ImageContent::class.simpleName] as List<ImageContent>?
@@ -321,46 +320,45 @@ object GoogleSlidesGenerator {
 }
 
 object GoogleSlidesApi {
-  private const val APPLICATION_NAME = "Google Slides API Java Quickstart"
+  private const val APPLICATION_NAME = "Asciidoctor Google Slides Converter"
   private val JSON_FACTORY: JsonFactory = JacksonFactory.getDefaultInstance()
   private const val TOKENS_DIRECTORY_PATH = "tokens"
 
-  /**
-   * Global instance of the scopes required by this quickstart.
-   * If modifying these scopes, delete your previously saved tokens/ folder.
-   */
   private val SCOPES = listOf(SlidesScopes.PRESENTATIONS)
-  private const val CREDENTIALS_FILE_PATH = "/credentials.json"
 
-  val service: Slides
-    get() {
+  fun getService(credentialsFilePath: String): Slides {
       // Build a new authorized API client service.
       val httpTransport = GoogleNetHttpTransport.newTrustedTransport()
-      return Slides.Builder(httpTransport, JSON_FACTORY, getCredentials(httpTransport))
+      return Slides.Builder(httpTransport, JSON_FACTORY, getCredentials(credentialsFilePath, httpTransport))
         .setApplicationName(APPLICATION_NAME)
         .build()
     }
 
   /**
    * Creates an authorized Credential object.
-   * @param HTTP_TRANSPORT The network HTTP Transport.
+   * @param httpTransport The network HTTP Transport.
    * @return An authorized Credential object.
    * @throws IOException If the credentials.json file cannot be found.
    */
   @Throws(IOException::class)
-  private fun getCredentials(HTTP_TRANSPORT: NetHttpTransport): Credential {
+  private fun getCredentials(credentialsFilePath: String, httpTransport: NetHttpTransport): Credential {
     // Load client secrets.
-    val inputStream = GoogleSlidesApi::class.java.getResourceAsStream(CREDENTIALS_FILE_PATH)
-      ?: throw FileNotFoundException("Resource not found: $CREDENTIALS_FILE_PATH")
-    val clientSecrets = GoogleClientSecrets.load(JSON_FACTORY, InputStreamReader(inputStream))
+    val credentialsFile = File(credentialsFilePath)
+    if (credentialsFile.exists() && credentialsFile.canRead()) {
+      FileReader(credentialsFile).use { fileReader ->
+        val clientSecrets = GoogleClientSecrets.load(JSON_FACTORY, fileReader)
 
-    // Build flow and trigger user authorization request.
-    val flow = GoogleAuthorizationCodeFlow.Builder(
-      HTTP_TRANSPORT, JSON_FACTORY, clientSecrets, SCOPES)
-      .setDataStoreFactory(FileDataStoreFactory(File(TOKENS_DIRECTORY_PATH)))
-      .setAccessType("offline")
-      .build()
-    val receiver = LocalServerReceiver.Builder().setPort(8888).build()
-    return AuthorizationCodeInstalledApp(flow, receiver).authorize("user")
+        // Build flow and trigger user authorization request.
+        val flow = GoogleAuthorizationCodeFlow.Builder(
+          httpTransport, JSON_FACTORY, clientSecrets, SCOPES)
+          .setDataStoreFactory(FileDataStoreFactory(File(TOKENS_DIRECTORY_PATH)))
+          .setAccessType("offline")
+          .build()
+        val receiver = LocalServerReceiver.Builder().setPort(8888).build()
+        return AuthorizationCodeInstalledApp(flow, receiver).authorize("user")
+      }
+    } else {
+      throw FileNotFoundException("Unable to read: $credentialsFilePath")
+    }
   }
 }
