@@ -130,7 +130,7 @@ sealed class SlideContent {
         )
         return SlideContents(listOf(listContent), speakerNotes)
       }
-      if (node.context == "org/asciidoctor/googleslides/image") {
+      if (node.context == "image") {
         val url = node.document.getAttribute("imagesdir") as String + node.getAttribute("target") as String
         if (url.startsWith("http://") || url.startsWith("https://")) {
           val bufferedImage = ImageIO.read(URL(url))
