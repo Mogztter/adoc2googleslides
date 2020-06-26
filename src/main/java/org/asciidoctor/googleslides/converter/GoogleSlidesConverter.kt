@@ -44,7 +44,7 @@ class GoogleSlidesConverter(backend: String?, private val opts: Map<String?, Any
     logger.debug("Trying to resolve the credentials path from the document attributes...")
 
     val credentialsPathDocumentAttribute = document.getAttribute("google-slides-credentials-path")
-    if (credentialsPathDocumentAttribute != null || credentialsPathDocumentAttribute.toString().isNotBlank()) {
+    if (credentialsPathDocumentAttribute != null && credentialsPathDocumentAttribute.toString().isNotBlank()) {
       return credentialsPathDocumentAttribute.toString().trim()
     }
     logger.debug("google-slides-credentials-path document attribute is missing")
