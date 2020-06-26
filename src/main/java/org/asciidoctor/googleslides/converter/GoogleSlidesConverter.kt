@@ -42,10 +42,8 @@ class GoogleSlidesConverter(backend: String?, private val opts: Map<String?, Any
     }
     logger.debug("ASCIIDOCTOR_GOOGLE_SLIDES_CREDENTIALS_PATH system environment is missing")
     logger.debug("Trying to resolve the credentials path from the document attributes...")
-
-    val credentialsPathDocumentAttribute = document.getAttribute("google-slides-credentials-path")
-    if (credentialsPathDocumentAttribute != null && credentialsPathDocumentAttribute.toString().isNotBlank()) {
-      return credentialsPathDocumentAttribute.toString().trim()
+    if (document.hasAttribute("google-slides-credentials-path")) {
+      return document.getAttribute("google-slides-credentials-path").toString().trim()
     }
     logger.debug("google-slides-credentials-path document attribute is missing")
     throw IllegalArgumentException("Unable to resolve the credentials path from: " +
