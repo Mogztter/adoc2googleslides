@@ -39,7 +39,7 @@ java {
   targetCompatibility = JavaVersion.VERSION_1_8
 }
 
-version = "0.1.0-SNAPSHOT"
+version = "0.0.1"
 group = "io.github.mogztter"
 
 repositories {
