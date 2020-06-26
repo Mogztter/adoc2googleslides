@@ -1,7 +1,13 @@
+import java.time.ZoneOffset
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
+
 /**
  *
  */
 plugins {
+  `maven-publish`
+  id("com.jfrog.bintray") version "1.8.4"
   application
   `kotlin-dsl`
 }
@@ -33,8 +39,94 @@ java {
   targetCompatibility = JavaVersion.VERSION_1_8
 }
 
-version = "1.0"
+version = "0.1.0-SNAPSHOT"
+group = "io.github.mogztter"
 
 repositories {
   mavenCentral()
+}
+
+val dryRunPublications = (project.findProperty("dryRun") as String?)?.toBoolean() ?: false
+val (buildDateOnly, buildTimeOnly) = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSZ")
+  .format(ZonedDateTime.now(ZoneOffset.UTC))
+  .split(" ")
+
+val artifactName = project.name
+val artifactGroup = project.group.toString()
+val artifactVersion = project.version.toString()
+
+val pomUrl = "https://github.com/Mogztter/adoc2googleslides"
+val pomScmUrl = "https://github.com/Mogztter/adoc2googleslides"
+val pomIssueUrl = "https://github.com/Mogztter/adoc2googleslides/issues"
+val pomDesc = "https://github.com/Mogztter/adoc2googleslides"
+
+val githubRepo = "Mogztter/adoc2googleslides"
+val githubReadme = "README.md"
+
+val pomLicenseName = "MIT"
+val pomLicenseUrl = "https://opensource.org/licenses/mit-license.php"
+val pomLicenseDist = "repo"
+
+val pomDeveloperId = "Mogztter"
+val pomDeveloperName = "Guillaume Grossetie"
+
+publishing {
+  publications {
+    create<MavenPublication>("asciidoctor-googleslides") {
+      groupId = artifactGroup
+      artifactId = artifactName
+      version = artifactVersion
+      from(components["java"])
+
+      pom.withXml {
+        asNode().apply {
+          appendNode("description", pomDesc)
+          appendNode("name", rootProject.name)
+          appendNode("url", pomUrl)
+          appendNode("licenses").appendNode("license").apply {
+            appendNode("name", pomLicenseName)
+            appendNode("url", pomLicenseUrl)
+            appendNode("distribution", pomLicenseDist)
+          }
+          appendNode("developers").appendNode("developer").apply {
+            appendNode("id", pomDeveloperId)
+            appendNode("name", pomDeveloperName)
+          }
+          appendNode("scm").apply {
+            appendNode("url", pomScmUrl)
+          }
+        }
+      }
+    }
+  }
+}
+
+bintray {
+  user = project.findProperty("bintrayUser").toString()
+  key = project.findProperty("bintrayKey").toString()
+  publish = true
+
+  setPublications("asciidoctor-googleslides")
+
+  pkg.apply {
+    repo = "maven"
+    name = artifactName
+    userOrg = "Mogztter"
+    githubRepo = githubRepo
+    vcsUrl = pomScmUrl
+    description = "Convert AsciiDoc to Google Slides"
+    setLabels("asciidoc", "google-slides", "converter")
+    setLicenses("MIT")
+    desc = description
+    websiteUrl = pomUrl
+    issueTrackerUrl = pomIssueUrl
+    githubReleaseNotesFile = githubReadme
+
+    version.apply {
+      name = artifactVersion
+      desc = pomDesc
+      released = ZonedDateTime.now(ZoneOffset.UTC).toString()
+      vcsTag = artifactVersion
+    }
+  }
 }
