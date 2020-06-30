@@ -87,28 +87,33 @@ object GoogleSlidesGenerator {
       }
       // QUESTION: should we use a "features"/"capabilities" detection mechanism for the layout (i.e. has a title, has a body, has two columns...)
       val pageElements = googleSlide.pageElements
-      if (pageElements == null) {
+      if (pageElements == null || pageElements.isEmpty()) {
         logger.warn("No layout found for slide: $slide, unable to insert content, skipping")
       } else {
         when (slide) {
           is TitleOnlySlide -> {
-            val slideTitle = pageElements.first { it.shape.placeholder.type == "TITLE" || it.shape.placeholder.type == "CENTERED_TITLE" }
-            addInsertTextRequest(slideTitle.objectId, TextContent(slide.title.orEmpty()), 0, requests)
+            addTitle(pageElements, slide, requests)
           }
           is TitleAndBodySlide -> {
-            val slideTitle = pageElements.first { it.shape.placeholder.type == "TITLE" || it.shape.placeholder.type == "CENTERED_TITLE" }
-            val slideBody = pageElements.first { it.shape.placeholder.type == "BODY" }
-            addInsertTextRequest(slideTitle.objectId, TextContent(slide.title.orEmpty()), 0, requests)
-            addContent(slide.body.contents, googleSlidesPresentation, googleSlide, slideBody, requests)
+            addTitle(pageElements, slide, requests)
+            val slideBody = pageElements.find { it.shape.placeholder.type == "BODY" }
+            if (slideBody == null) {
+              logger.warn("No BODY found on the slide elements: $pageElements, body won't be added")
+            } else {
+              addContent(slide.body.contents, googleSlidesPresentation, googleSlide, slideBody, requests)
+            }
           }
           is TitleAndTwoColumns -> {
-            val slideTitle = pageElements.first { it.shape.placeholder.type == "TITLE" || it.shape.placeholder.type == "CENTERED_TITLE" }
+            addTitle(pageElements, slide, requests)
             val bodies = pageElements.filter { it.shape.placeholder.type == "BODY" }
-            val slideLeftBody = bodies[0]
-            val slideRightBody = bodies[1]
-            addInsertTextRequest(slideTitle.objectId, TextContent(slide.title.orEmpty()), 0, requests)
-            addContent(slide.leftColumn.contents, googleSlidesPresentation, googleSlide, slideLeftBody, requests)
-            addContent(slide.rightColumn.contents, googleSlidesPresentation, googleSlide, slideRightBody, requests)
+            if (bodies.size < 2) {
+              logger.warn("Unable to found at least 2 BODY elements on the slide elements: $pageElements, body won't be added")
+            } else {
+              val slideLeftBody = bodies[0]
+              val slideRightBody = bodies[1]
+              addContent(slide.leftColumn.contents, googleSlidesPresentation, googleSlide, slideLeftBody, requests)
+              addContent(slide.rightColumn.contents, googleSlidesPresentation, googleSlide, slideRightBody, requests)
+            }
           }
         }
       }
@@ -117,6 +122,15 @@ object GoogleSlidesGenerator {
     batchUpdatePresentationRequest.requests = requests
     presentations.batchUpdate(googleSlidesPresentation.presentationId, batchUpdatePresentationRequest).execute()
     return googleSlidesPresentation.presentationId
+  }
+
+  private fun addTitle(pageElements: MutableList<PageElement>, slide: Slide, requests: MutableList<Request>) {
+    val slideTitle = pageElements.find { it.shape.placeholder.type == "TITLE" || it.shape.placeholder.type == "CENTERED_TITLE" }
+    if (slideTitle == null) {
+      logger.warn("No TITLE or CENTERED_TITLE found on the slide elements: $pageElements, title: ${slide.title.orEmpty()} won't be added")
+    } else {
+      addInsertTextRequest(slideTitle.objectId, TextContent(slide.title.orEmpty()), 0, requests)
+    }
   }
 
   private fun getPresentation(driveService: Drive, slidesService: Slides, title: String, presentationId: String?, copyId: String?): Presentation {
