@@ -1,6 +1,7 @@
 package org.asciidoctor.googleslides
 
 import org.asciidoctor.ast.*
+import org.asciidoctor.jruby.internal.RubyObjectWrapper
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Element
 import org.jsoup.nodes.TextNode
@@ -10,6 +11,7 @@ import java.io.IOException
 import java.net.URL
 import javax.imageio.ImageIO
 
+
 data class SlideDeck(val title: String, val slides: List<Slide>) {
 
   companion object {
@@ -17,6 +19,9 @@ data class SlideDeck(val title: String, val slides: List<Slide>) {
 
     fun from(document: Document): SlideDeck {
       flattenDocument(document)
+      for (block in document.blocks) {
+        logger.info("block: $block")
+      }
       val slides = document.blocks.mapNotNull { block ->
         if (block is Section) {
           val slideTitle = if (block.title == "!") {
@@ -98,9 +103,12 @@ data class SlideDeck(val title: String, val slides: List<Slide>) {
       }.reversed().forEach { section ->
         var parentSection = (section.parent as Section)
         parentSection.blocks.remove(section)
-        while (parentSection.parent != null && parentSection.parent.context == ":section") {
+        while (parentSection.parent != null && parentSection.parent.context == "section") {
           parentSection = parentSection.parent as Section
         }
+        val rubyBlock = section as RubyObjectWrapper
+        val ruby = rubyBlock.rubyObject.runtime
+        rubyBlock.setRubyProperty("@level", ruby.newFixnum(1))
         document.blocks.add(parentSection.index + 1, section)
       }
     }
