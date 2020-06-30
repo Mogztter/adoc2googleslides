@@ -103,9 +103,9 @@ bintray {
   setPublications("asciidoctor-googleslides")
 
   pkg.apply {
-    repo = "maven"
+    repo = "io.github.mogztter"
     name = artifactName
-    userOrg = "Mogztter"
+    userOrg = "mogztter"
     githubRepo = githubRepo
     vcsUrl = pomScmUrl
     description = "Convert AsciiDoc to Google Slides"
