@@ -55,7 +55,9 @@ object GoogleSlidesGenerator {
     presentations.batchUpdate(googleSlidesPresentation.presentationId, batchUpdatePresentationRequest).execute()
 
     // Reload presentation
-    googleSlidesPresentation = presentations.get(googleSlidesPresentation.presentationId).execute()
+    googleSlidesPresentation = presentations.get(googleSlidesPresentation.presentationId)
+      .setFields("title,layouts,masters,slides,presentationId")
+      .execute()
 
     // Populate slides
     requests = mutableListOf()
@@ -70,12 +72,12 @@ object GoogleSlidesGenerator {
         addInsertTextRequest(speakerNotesObjectId, TextContent(slide.speakerNotes!!), 0, requests)
       }
       if (slide is TitleAndBodySlide) {
-        val slideTitle = googleSlide.pageElements.first { it.shape.placeholder.type == "TITLE" }
+        val slideTitle = googleSlide.pageElements.first { it.shape.placeholder.type == "TITLE" || it.shape.placeholder.type == "CENTERED_TITLE"  }
         val slideBody = googleSlide.pageElements.first { it.shape.placeholder.type == "BODY" }
         addInsertTextRequest(slideTitle.objectId, TextContent(slide.title.orEmpty()), 0, requests)
         addContent(slide.body.contents, googleSlidesPresentation, googleSlide, slideBody, requests)
       } else if (slide is TitleAndTwoColumns) {
-        val slideTitle = googleSlide.pageElements.first { it.shape.placeholder.type == "TITLE" }
+        val slideTitle = googleSlide.pageElements.first { it.shape.placeholder.type == "TITLE" || it.shape.placeholder.type == "CENTERED_TITLE" }
         val bodies = googleSlide.pageElements.filter { it.shape.placeholder.type == "BODY" }
         val slideLeftBody = bodies[0]
         val slideRightBody = bodies[1]
@@ -100,7 +102,9 @@ object GoogleSlidesGenerator {
 
   private fun forPresentation(slidesService: Slides, presentationId: String): Presentation {
     logger.info("Get presentation for ID: $presentationId")
-    return slidesService.presentations().get(presentationId).execute()
+    return slidesService.presentations().get(presentationId)
+      .setFields("layouts,masters,slides,presentationId")
+      .execute()
   }
 
   private fun copyPresentation(driveService: Drive, slidesService: Slides, title: String, copyId: String): Presentation {
@@ -115,13 +119,12 @@ object GoogleSlidesGenerator {
     val presentations = slidesService.presentations()
     var googleSlidesPresentation = Presentation().setTitle(title)
     // create a presentation
-    googleSlidesPresentation = presentations.create(googleSlidesPresentation)
-      .setFields("layouts,masters,slides,presentationId")
+    googleSlidesPresentation = presentations
+      .create(googleSlidesPresentation).setFields("layouts,masters,slides,presentationId")
       .execute()
     logger.info("Created presentation with ID: ${googleSlidesPresentation.presentationId}")
     return googleSlidesPresentation
   }
-
 
   private fun appendCreateImagesRequests(images: List<ImageContent>, presentation: Presentation, slide: Page, placeholder: PageElement, requests: MutableList<Request>) {
     val packingSmithLayer = Layout.get(emptyMap())
@@ -226,9 +229,10 @@ object GoogleSlidesGenerator {
 
   private fun deleteExistingSlides(slides: List<Page>, requests: MutableList<Request>) {
     requests.addAll(slides.map {
+      val objectId = slides.first().objectId
       val request = Request()
       val deleteObjectRequest = DeleteObjectRequest()
-      deleteObjectRequest.objectId = slides.first().objectId
+      deleteObjectRequest.objectId = objectId
       request.deleteObject = deleteObjectRequest
       request
     })
@@ -357,12 +361,12 @@ object GoogleApi {
   private val SCOPES = listOf(SlidesScopes.PRESENTATIONS, DriveScopes.DRIVE)
 
   fun getSlidesService(credentialsFilePath: String): Slides {
-      // Build a new authorized API client service.
-      val httpTransport = GoogleNetHttpTransport.newTrustedTransport()
-      return Slides.Builder(httpTransport, JSON_FACTORY, getCredentials(credentialsFilePath, httpTransport))
-        .setApplicationName(APPLICATION_NAME)
-        .build()
-    }
+    // Build a new authorized API client service.
+    val httpTransport = GoogleNetHttpTransport.newTrustedTransport()
+    return Slides.Builder(httpTransport, JSON_FACTORY, getCredentials(credentialsFilePath, httpTransport))
+      .setApplicationName(APPLICATION_NAME)
+      .build()
+  }
 
   fun getDriveService(credentialsFilePath: String): Drive {
     // Build a new authorized API client service.

@@ -9,6 +9,7 @@ import org.jsoup.nodes.Element
 import org.jsoup.nodes.TextNode
 import org.jsoup.parser.Parser
 import org.slf4j.LoggerFactory
+import java.io.IOException
 import java.net.URL
 import javax.imageio.ImageIO
 
@@ -88,6 +89,9 @@ data class SlideDeck(val title: String, val slides: List<Slide>) {
 sealed class Slide(open val title: String?, open val speakerNotes: String? = null)
 sealed class SlideContent {
   companion object {
+
+    private val logger = LoggerFactory.getLogger(SlideContent::class.java)
+
     fun from(node: StructuralNode): SlideContents {
       if (node is org.asciidoctor.ast.List) {
         val textRanges = mutableListOf<TextRange>()
@@ -133,10 +137,15 @@ sealed class SlideContent {
       if (node.context == "image") {
         val url = node.document.getAttribute("imagesdir") as String + node.getAttribute("target") as String
         if (url.startsWith("http://") || url.startsWith("https://")) {
-          val bufferedImage = ImageIO.read(URL(url))
-          val height = bufferedImage.height
-          val width = bufferedImage.width
-          return SlideContents(listOf(ImageContent(url, height, width)))
+          try {
+            val bufferedImage = ImageIO.read(URL(url))
+            val height = bufferedImage.height
+            val width = bufferedImage.width
+            return SlideContents(listOf(ImageContent(url, height, width)))
+          } catch (e: IOException) {
+            logger.error("Unable to read image: $url", e)
+            throw e
+          }
         }
         throw IllegalArgumentException("Local images are not supported, the target must be a remote URL starting with http:// or https://")
       }

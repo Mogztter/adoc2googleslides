@@ -1,0 +1,48 @@
+= Introduction to Cypher
+:imagesdir: https://s3.amazonaws.com/dev.assets.neo4j.com/course/4.0-intro-neo4j/images/
+
+== Overview
+
+At the end of this module, you should be able to write Cypher statements to:
+
+* Retrieve nodes from the graph.
+* Filter nodes retrieved using labels and property values of nodes.
+* Retrieve property values from nodes in the graph.
+* Filter nodes retrieved using relationships.
+
+[.notes]
+--
+Show the students:
+
+* Neo4j Developer Manual: https://neo4j.com/docs/cypher-manual/current/
+* Cypher RefCard: http://neo4j.com/docs/cypher-refcard/current/
+--
+
+== What is Cypher?
+
+[.two-columns]
+--
+* Declarative query language
+* Focuses on _what_, not how to retrieve
+* Uses keywords such as `MATCH`, `WHERE`, `CREATE`
+* Runs in the database server for the graph
+* ASCII art to represent nodes and relationships
+
+image::Relationships.png[Overview,align=center]
+--
+
+== Cypher is ASCII Art
+
+image::AsciiArt.png[Cypher AsciiArt,width=450px,align=center]
+
+[source.big,cypher]
+----
+(A)-[:LIKES]->(B),(A)-[:LIKES]->(C),(B)-[:LIKES]->(C)
+(A)-[:LIKES]->(B)-[:LIKES]->(C)<-[:LIKES]-(A)
+----
+
+[.notes]
+--
+Being a declarative language, Cypher focuses on the clarity of expressing *what* to retrieve from a graph, not on *how* to retrieve it.
+You can think of Cypher as mapping English language sentence structure to patterns in a graph.
+--
