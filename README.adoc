@@ -1,0 +1,59 @@
+= Asciidoctor Google Slides
+:project-name: asciidoctor-googleslides
+
+Generate Google Slides from AsciiDoc!
+
+This project is written in Java/Kotlin and uses the Google Slides API.
+
+[caption=Status]
+CAUTION: {project-name} is currently _alpha_ software.
+
+== Usage
+
+This project is published on https://bintray.com/mogztter/io.github.mogztter/asciidoctor-googleslides[bintray].
+If you are using Gradle, you can use the following configuration to use the converter with the Asciidoctor Gradle Plugin:
+
+[source,gradle]
+----
+repositories {
+  mavenCentral()
+  maven {
+    url "https://dl.bintray.com/mogztter/io.github.mogztter"
+  }
+}
+
+configurations {
+  asciidoctorgoogleslides
+}
+
+dependencies {
+  asciidoctorgoogleslides("io.github.mogztter:asciidoctor-googleslides:0.0.8")
+}
+
+asciidoctorj {
+  // must be a web accessible location
+  attributes 'imagesdir': "https://img.org/images/",
+             'google-slides-credentials-path': '/path/to/credentials.json'
+}
+
+asciidoctor {
+  outputOptions {
+    backends = ["googleslides"]
+  }
+
+  configurations 'asciidoctorgoogleslides'
+}
+----
+
+== Release
+
+. Update the version in the `build.gradle.kts` file and commit
+. Tag and push to master (don’t forget the v prefix and replace x.y.z with an actual version):
++
+ $ git tag vx.y.z && git push origin master --tags
++
+. Create the new version on https://bintray.com/mogztter/io.github.mogztter/asciidoctor-googleslides
+. Upload the artifacts to bintray:
++
+ $ ./gradlew bintrayUpload -PbintrayUser=mogztter -PbintrayKey=secret
+
