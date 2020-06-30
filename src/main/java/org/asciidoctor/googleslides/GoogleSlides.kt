@@ -6,6 +6,7 @@ import com.google.api.client.extensions.jetty.auth.oauth2.LocalServerReceiver
 import com.google.api.client.googleapis.auth.oauth2.GoogleAuthorizationCodeFlow
 import com.google.api.client.googleapis.auth.oauth2.GoogleClientSecrets
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport
+import com.google.api.client.http.HttpTransport
 import com.google.api.client.http.javanet.NetHttpTransport
 import com.google.api.client.json.JsonFactory
 import com.google.api.client.json.jackson2.JacksonFactory
@@ -24,6 +25,8 @@ import java.io.FileNotFoundException
 import java.io.FileReader
 import java.io.IOException
 import java.util.*
+import java.util.logging.Level
+import java.util.logging.Logger
 import kotlin.math.min
 import com.google.api.services.drive.model.File as DriveFile
 
@@ -32,6 +35,15 @@ object GoogleSlidesGenerator {
   private val logger = LoggerFactory.getLogger(GoogleSlidesGenerator::class.java)
 
   fun generate(slideDeck: SlideDeck, slidesService: Slides, driveService: Drive, presentationId: String?, copyId: String?): String {
+    // configure the logger level otherwise it get really verbose when gradle --info is configured
+    val httpTransportLogger = Logger.getLogger(HttpTransport::class.java.name)
+    httpTransportLogger.level = when {
+      logger.isTraceEnabled -> Level.ALL
+      logger.isDebugEnabled -> Level.CONFIG
+      logger.isInfoEnabled -> Level.INFO
+      logger.isWarnEnabled -> Level.WARNING
+      else -> Level.SEVERE
+    }
     val presentations = slidesService.presentations()
     var googleSlidesPresentation = getPresentation(driveService, slidesService, slideDeck.title, presentationId, copyId)
 
