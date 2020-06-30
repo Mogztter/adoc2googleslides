@@ -45,11 +45,8 @@ object GoogleSlidesGenerator {
 
     addCreateTitleSlide(layouts, requests)
     for (slide in slideDeck.slides) {
-      if (slide is TitleAndBodySlide) {
-        addCreateTitleAndBodySlide(layouts, requests)
-      } else if (slide is TitleAndTwoColumns) {
-        addCreateTwoColumnsSlide(layouts, requests)
-      }
+      val layout = layouts.first { it.layoutProperties.name == slide.layoutId }
+      addCreateSlideRequest(layout, UUID.randomUUID().toString(), requests)
     }
     batchUpdatePresentationRequest.requests = requests
     presentations.batchUpdate(googleSlidesPresentation.presentationId, batchUpdatePresentationRequest).execute()
@@ -71,19 +68,27 @@ object GoogleSlidesGenerator {
       if (speakerNotesObjectId != null && slide.speakerNotes != null && slide.speakerNotes!!.isNotBlank()) {
         addInsertTextRequest(speakerNotesObjectId, TextContent(slide.speakerNotes!!), 0, requests)
       }
-      if (slide is TitleAndBodySlide) {
-        val slideTitle = googleSlide.pageElements.first { it.shape.placeholder.type == "TITLE" || it.shape.placeholder.type == "CENTERED_TITLE"  }
-        val slideBody = googleSlide.pageElements.first { it.shape.placeholder.type == "BODY" }
-        addInsertTextRequest(slideTitle.objectId, TextContent(slide.title.orEmpty()), 0, requests)
-        addContent(slide.body.contents, googleSlidesPresentation, googleSlide, slideBody, requests)
-      } else if (slide is TitleAndTwoColumns) {
-        val slideTitle = googleSlide.pageElements.first { it.shape.placeholder.type == "TITLE" || it.shape.placeholder.type == "CENTERED_TITLE" }
-        val bodies = googleSlide.pageElements.filter { it.shape.placeholder.type == "BODY" }
-        val slideLeftBody = bodies[0]
-        val slideRightBody = bodies[1]
-        addInsertTextRequest(slideTitle.objectId, TextContent(slide.title.orEmpty()), 0, requests)
-        addContent(slide.leftColumn.contents, googleSlidesPresentation, googleSlide, slideLeftBody, requests)
-        addContent(slide.rightColumn.contents, googleSlidesPresentation, googleSlide, slideRightBody, requests)
+      // QUESTION: should we use a "features"/"capabilities" detection mechanism for the layout (i.e. has a title, has a body, has two columns...)
+      when (slide) {
+        is TitleOnlySlide -> {
+          val slideTitle = googleSlide.pageElements.first { it.shape.placeholder.type == "TITLE" || it.shape.placeholder.type == "CENTERED_TITLE" }
+          addInsertTextRequest(slideTitle.objectId, TextContent(slide.title.orEmpty()), 0, requests)
+        }
+        is TitleAndBodySlide -> {
+          val slideTitle = googleSlide.pageElements.first { it.shape.placeholder.type == "TITLE" || it.shape.placeholder.type == "CENTERED_TITLE" }
+          val slideBody = googleSlide.pageElements.first { it.shape.placeholder.type == "BODY" }
+          addInsertTextRequest(slideTitle.objectId, TextContent(slide.title.orEmpty()), 0, requests)
+          addContent(slide.body.contents, googleSlidesPresentation, googleSlide, slideBody, requests)
+        }
+        is TitleAndTwoColumns -> {
+          val slideTitle = googleSlide.pageElements.first { it.shape.placeholder.type == "TITLE" || it.shape.placeholder.type == "CENTERED_TITLE" }
+          val bodies = googleSlide.pageElements.filter { it.shape.placeholder.type == "BODY" }
+          val slideLeftBody = bodies[0]
+          val slideRightBody = bodies[1]
+          addInsertTextRequest(slideTitle.objectId, TextContent(slide.title.orEmpty()), 0, requests)
+          addContent(slide.leftColumn.contents, googleSlidesPresentation, googleSlide, slideLeftBody, requests)
+          addContent(slide.rightColumn.contents, googleSlidesPresentation, googleSlide, slideRightBody, requests)
+        }
       }
     }
     logger.debug("batchUpdatePresentationRequest.requests: $requests")
@@ -238,19 +243,9 @@ object GoogleSlidesGenerator {
     })
   }
 
-  private fun addCreateTwoColumnsSlide(layouts: List<Page>, requests: MutableList<Request>) {
-    val titleLayout = layouts.first { it.layoutProperties.name == "TITLE_AND_TWO_COLUMNS" }
-    addCreateSlideRequest(titleLayout, UUID.randomUUID().toString(), requests)
-  }
-
   private fun addCreateTitleSlide(layouts: List<Page>, requests: MutableList<Request>) {
     val titleLayout = layouts.first { it.layoutProperties.name == "TITLE" }
     addCreateSlideRequest(titleLayout, UUID.randomUUID().toString(), requests)
-  }
-
-  private fun addCreateTitleAndBodySlide(layouts: List<Page>, requests: MutableList<Request>) {
-    val titleAndBodyLayout = layouts.first { it.layoutProperties.name == "TITLE_AND_BODY" }
-    addCreateSlideRequest(titleAndBodyLayout, UUID.randomUUID().toString(), requests)
   }
 
   private fun addCreateSlideRequest(layout: Page, objectId: String, requests: MutableList<Request>) {

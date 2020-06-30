@@ -26,7 +26,6 @@ dependencies {
   testImplementation("org.jetbrains.kotlin:kotlin-test")
   testImplementation("org.jetbrains.kotlin:kotlin-test-junit")
   testImplementation("org.assertj:assertj-core:3.11.1")
-  testImplementation("ch.qos.logback:logback-classic:1.2.3")
 }
 
 java {

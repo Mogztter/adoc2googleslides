@@ -16,3 +16,37 @@ Show the students:
 * Neo4j Developer Manual: https://neo4j.com/docs/cypher-manual/current/
 * Cypher RefCard: http://neo4j.com/docs/cypher-refcard/current/
 --
+
+== What is Cypher?
+
+[square]
+* Declarative query language.
+* Query the graph.
+* Update the graph.
+* Easily-understood syntax.
+
+== Syntax: Using MATCH to retrieve nodes
+
+[.notes]
+--
+The most widely used Cypher clause is `MATCH`.
+--
+
+Here are simplified syntax examples for a query:
+
+[source.big,cypher]
+----
+MATCH (variable)
+RETURN variable
+----
+
+[source.big, cypher]
+----
+MATCH (variable:Label)
+RETURN variable
+----
+
+[.notes]
+--
+Notice that the Cypher keywords `MATCH` and `RETURN` are upper-case.
+--

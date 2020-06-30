@@ -1,0 +1,16 @@
+= Implementing Graph Data Models in Neo4j 4.0
+:google-slides-layout-quiz: TITLE_ONLY_1
+
+== Working with the sample data
+
+A best practice when creating a graph with Cypher is to use the `MERGE` statement.
+When creating nodes, you specify the properties in the `MERGE` statement to ensure that nodes with the same property values are not duplicated in the graph.
+For large graphs, the node properties used for the MERGE should have uniqueness constraints on them.
+
+[.quiz]
+== Check your understanding
+
+=== Question 1
+
+Suppose you want to create _Person_ nodes in the graph, each with a unique value for the _personID_ property . What must you do to ensure that nodes are unique?
+Select the correct answers.

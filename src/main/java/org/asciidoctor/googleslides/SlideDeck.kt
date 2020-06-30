@@ -1,9 +1,6 @@
 package org.asciidoctor.googleslides
 
-import org.asciidoctor.ast.Document
-import org.asciidoctor.ast.ListItem
-import org.asciidoctor.ast.Section
-import org.asciidoctor.ast.StructuralNode
+import org.asciidoctor.ast.*
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Element
 import org.jsoup.nodes.TextNode
@@ -47,7 +44,8 @@ data class SlideDeck(val title: String, val slides: List<Slide>) {
                 title = slideTitle,
                 rightColumn = rightColumnContents,
                 leftColumn = leftColumnContents,
-                speakerNotes = speakerNotes + rightColumnContents.speakerNotes.orEmpty() + leftColumnContents.speakerNotes.orEmpty()
+                speakerNotes = speakerNotes + rightColumnContents.speakerNotes.orEmpty() + leftColumnContents.speakerNotes.orEmpty(),
+                layoutId = resolveLayoutFromRoles(block, "TITLE_AND_TWO_COLUMNS")
               )
             } else {
               logger.warn("A two-columns block must have exactly 2 nested blocks, ignoring.")
@@ -62,13 +60,36 @@ data class SlideDeck(val title: String, val slides: List<Slide>) {
             } else {
               SlideContents(emptyList())
             }
-            TitleAndBodySlide(slideTitle, contents, speakerNotes + contents.speakerNotes)
+            if (contents.contents.isEmpty()) {
+              TitleOnlySlide(
+                title = slideTitle,
+                speakerNotes = speakerNotes + contents.speakerNotes.orEmpty(),
+                layoutId = resolveLayoutFromRoles(block, "TITLE_ONLY")
+              )
+            } else {
+              TitleAndBodySlide(
+                title = slideTitle,
+                body = contents,
+                speakerNotes = speakerNotes + contents.speakerNotes.orEmpty(),
+                layoutId = resolveLayoutFromRoles(block, "TITLE_AND_BODY")
+              )
+            }
           }
         } else {
           null
         }
       }
       return SlideDeck(document.doctitle, slides)
+    }
+
+    private fun resolveLayoutFromRoles(block: ContentNode, defaultValue: String): String {
+      val roles = block.roles
+      for (role in roles) {
+        if (block.document.hasAttribute("google-slides-layout-$role")) {
+          return block.document.getAttribute("google-slides-layout-$role") as String
+        }
+      }
+      return defaultValue
     }
 
     private fun flattenDocument(document: Document) {
@@ -86,7 +107,6 @@ data class SlideDeck(val title: String, val slides: List<Slide>) {
   }
 }
 
-sealed class Slide(open val title: String?, open val speakerNotes: String? = null)
 sealed class SlideContent {
   companion object {
 
@@ -228,11 +248,21 @@ data class TextRange(val token: TextToken, val startIndex: Int, val endIndex: In
 data class TextToken(val text: String, val type: String)
 data class SlideContents(val contents: List<SlideContent>, val speakerNotes: String? = null)
 
+sealed class Slide(open val title: String?, open val speakerNotes: String? = null, open val layoutId: String)
 data class TitleAndTwoColumns(override val title: String?,
                               val rightColumn: SlideContents,
                               val leftColumn: SlideContents,
-                              override val speakerNotes: String? = null) : Slide(title, speakerNotes)
+                              override val speakerNotes: String? = null,
+                              override val layoutId: String)
+  : Slide(title, speakerNotes, "TITLE_AND_TWO_COLUMNS")
 
 data class TitleAndBodySlide(override val title: String?,
                              val body: SlideContents,
-                             override val speakerNotes: String? = null) : Slide(title, speakerNotes)
+                             override val speakerNotes: String? = null,
+                             override val layoutId: String)
+  : Slide(title, speakerNotes, layoutId)
+
+data class TitleOnlySlide(override val title: String?,
+                          override val speakerNotes: String? = null,
+                          override val layoutId: String)
+  : Slide(title, speakerNotes, layoutId)

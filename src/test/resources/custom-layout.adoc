@@ -1,0 +1,34 @@
+= Implementing Graph Data Models in Neo4j 4.0
+
+[.student-exercise]
+== Exercise 1: Creating Flight nodes from CONNECTED_TO relationships
+
+[.small]
+--
+In the query edit pane of Neo4j Browser, execute the browser command:
+
+kbd:[:play 4.0-neo4j-modeling-exercises]
+
+and follow the instructions for Exercise 4.
+
+[NOTE]
+This exercise has 7 steps.
+Estimated time to complete: 30 minutes.
+--
+
+[.quiz]
+== Check your understanding
+
+=== Question 1
+
+[.statement]
+Suppose you want to create _Person_ nodes in the graph, each with a unique value for the _personID_ property . What must you do to ensure that nodes are unique?
+
+[.statement]
+Select the correct answers.
+
+[%interactive.answers]
+- [ ] Test the existence of the _Person_ node with the _personID_ property value before you use `CREATE` to create it.
+- [ ] Create an existence constraint for the _personID_ property of the _Person_ node.
+- [x] Use `MERGE` to create the _Person_ node with a unique property value specified for _personID_.
+- [x] Create a uniqueness constraint for the _personID_ property of the _Person_ node.
