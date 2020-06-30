@@ -44,8 +44,13 @@ object GoogleSlidesGenerator {
     deleteExistingSlides(slides, requests)
 
     addCreateTitleSlide(layouts, requests)
+    logger.info("Layouts available: ${layouts.map { it.layoutProperties.name }} for presentation id: ${googleSlidesPresentation.presentationId}")
+
     for (slide in slideDeck.slides) {
-      val layout = layouts.first { it.layoutProperties.name == slide.layoutId }
+      val layout = layouts.find { it.layoutProperties.name == slide.layoutId }
+      if (layout == null) {
+        logger.warn("Unable to find a layout for id: ${slide.layoutId} and slide: $slide")
+      }
       addCreateSlideRequest(layout, UUID.randomUUID().toString(), requests)
     }
     batchUpdatePresentationRequest.requests = requests
@@ -69,25 +74,30 @@ object GoogleSlidesGenerator {
         addInsertTextRequest(speakerNotesObjectId, TextContent(slide.speakerNotes!!), 0, requests)
       }
       // QUESTION: should we use a "features"/"capabilities" detection mechanism for the layout (i.e. has a title, has a body, has two columns...)
-      when (slide) {
-        is TitleOnlySlide -> {
-          val slideTitle = googleSlide.pageElements.first { it.shape.placeholder.type == "TITLE" || it.shape.placeholder.type == "CENTERED_TITLE" }
-          addInsertTextRequest(slideTitle.objectId, TextContent(slide.title.orEmpty()), 0, requests)
-        }
-        is TitleAndBodySlide -> {
-          val slideTitle = googleSlide.pageElements.first { it.shape.placeholder.type == "TITLE" || it.shape.placeholder.type == "CENTERED_TITLE" }
-          val slideBody = googleSlide.pageElements.first { it.shape.placeholder.type == "BODY" }
-          addInsertTextRequest(slideTitle.objectId, TextContent(slide.title.orEmpty()), 0, requests)
-          addContent(slide.body.contents, googleSlidesPresentation, googleSlide, slideBody, requests)
-        }
-        is TitleAndTwoColumns -> {
-          val slideTitle = googleSlide.pageElements.first { it.shape.placeholder.type == "TITLE" || it.shape.placeholder.type == "CENTERED_TITLE" }
-          val bodies = googleSlide.pageElements.filter { it.shape.placeholder.type == "BODY" }
-          val slideLeftBody = bodies[0]
-          val slideRightBody = bodies[1]
-          addInsertTextRequest(slideTitle.objectId, TextContent(slide.title.orEmpty()), 0, requests)
-          addContent(slide.leftColumn.contents, googleSlidesPresentation, googleSlide, slideLeftBody, requests)
-          addContent(slide.rightColumn.contents, googleSlidesPresentation, googleSlide, slideRightBody, requests)
+      val pageElements = googleSlide.pageElements
+      if (pageElements == null) {
+        logger.warn("No layout found for slide: $slide, unable to insert content, skipping")
+      } else {
+        when (slide) {
+          is TitleOnlySlide -> {
+            val slideTitle = pageElements.first { it.shape.placeholder.type == "TITLE" || it.shape.placeholder.type == "CENTERED_TITLE" }
+            addInsertTextRequest(slideTitle.objectId, TextContent(slide.title.orEmpty()), 0, requests)
+          }
+          is TitleAndBodySlide -> {
+            val slideTitle = pageElements.first { it.shape.placeholder.type == "TITLE" || it.shape.placeholder.type == "CENTERED_TITLE" }
+            val slideBody = pageElements.first { it.shape.placeholder.type == "BODY" }
+            addInsertTextRequest(slideTitle.objectId, TextContent(slide.title.orEmpty()), 0, requests)
+            addContent(slide.body.contents, googleSlidesPresentation, googleSlide, slideBody, requests)
+          }
+          is TitleAndTwoColumns -> {
+            val slideTitle = pageElements.first { it.shape.placeholder.type == "TITLE" || it.shape.placeholder.type == "CENTERED_TITLE" }
+            val bodies = pageElements.filter { it.shape.placeholder.type == "BODY" }
+            val slideLeftBody = bodies[0]
+            val slideRightBody = bodies[1]
+            addInsertTextRequest(slideTitle.objectId, TextContent(slide.title.orEmpty()), 0, requests)
+            addContent(slide.leftColumn.contents, googleSlidesPresentation, googleSlide, slideLeftBody, requests)
+            addContent(slide.rightColumn.contents, googleSlidesPresentation, googleSlide, slideRightBody, requests)
+          }
         }
       }
     }
@@ -106,7 +116,7 @@ object GoogleSlidesGenerator {
   }
 
   private fun forPresentation(slidesService: Slides, presentationId: String): Presentation {
-    logger.info("Get presentation for ID: $presentationId")
+    logger.info("Get presentation for id: $presentationId")
     return slidesService.presentations().get(presentationId)
       .setFields("layouts,masters,slides,presentationId")
       .execute()
@@ -115,7 +125,7 @@ object GoogleSlidesGenerator {
   private fun copyPresentation(driveService: Drive, slidesService: Slides, title: String, copyId: String): Presentation {
     val driveFile = DriveFile()
     driveFile.name = title
-    logger.info("Copy presentation from ID: $copyId")
+    logger.info("Copy presentation from id: $copyId")
     val createdDriveFile = driveService.files().copy(copyId, driveFile).execute()
     return forPresentation(slidesService, createdDriveFile.id)
   }
@@ -127,7 +137,7 @@ object GoogleSlidesGenerator {
     googleSlidesPresentation = presentations
       .create(googleSlidesPresentation).setFields("layouts,masters,slides,presentationId")
       .execute()
-    logger.info("Created presentation with ID: ${googleSlidesPresentation.presentationId}")
+    logger.info("Created presentation with id: ${googleSlidesPresentation.presentationId}")
     return googleSlidesPresentation
   }
 
@@ -248,12 +258,14 @@ object GoogleSlidesGenerator {
     addCreateSlideRequest(titleLayout, UUID.randomUUID().toString(), requests)
   }
 
-  private fun addCreateSlideRequest(layout: Page, objectId: String, requests: MutableList<Request>) {
+  private fun addCreateSlideRequest(layout: Page?, objectId: String, requests: MutableList<Request>) {
     val request = Request()
     val createSlide = CreateSlideRequest()
-    val slideLayoutReference = LayoutReference()
-    slideLayoutReference.layoutId = layout.objectId
-    createSlide.slideLayoutReference = slideLayoutReference
+    if (layout != null) {
+      val slideLayoutReference = LayoutReference()
+      slideLayoutReference.layoutId = layout.objectId
+      createSlide.slideLayoutReference = slideLayoutReference
+    }
     createSlide.objectId = objectId
     request.createSlide = createSlide
     requests.add(request)
