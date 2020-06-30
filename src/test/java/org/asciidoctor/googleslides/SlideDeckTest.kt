@@ -1,7 +1,6 @@
+package org.asciidoctor.googleslides
+
 import org.asciidoctor.Asciidoctor
-import org.asciidoctor.googleslides.ListingContent
-import org.asciidoctor.googleslides.SlideContent
-import org.asciidoctor.googleslides.SlideDeck
 import org.assertj.core.api.Assertions
 import kotlin.test.Test
 

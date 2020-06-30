@@ -16,6 +16,7 @@ dependencies {
   implementation("com.google.api-client:google-api-client:1.30.9")
   implementation("com.google.oauth-client:google-oauth-client-jetty:1.30.6")
   implementation("com.google.apis:google-api-services-slides:v1-rev399-1.25.0")
+  implementation("com.google.apis:google-api-services-drive:v3-rev197-1.25.0")
   implementation("org.jsoup:jsoup:1.13.1")
   implementation("org.slf4j:slf4j-api:1.7.30")
   // Align versions of all Kotlin components

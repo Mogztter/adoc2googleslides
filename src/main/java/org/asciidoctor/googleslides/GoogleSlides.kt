@@ -10,6 +10,8 @@ import com.google.api.client.http.javanet.NetHttpTransport
 import com.google.api.client.json.JsonFactory
 import com.google.api.client.json.jackson2.JacksonFactory
 import com.google.api.client.util.store.FileDataStoreFactory
+import com.google.api.services.drive.Drive
+import com.google.api.services.drive.DriveScopes
 import com.google.api.services.slides.v1.Slides
 import com.google.api.services.slides.v1.SlidesScopes
 import com.google.api.services.slides.v1.model.*
@@ -23,20 +25,15 @@ import java.io.FileReader
 import java.io.IOException
 import java.util.*
 import kotlin.math.min
+import com.google.api.services.drive.model.File as DriveFile
 
 
 object GoogleSlidesGenerator {
   private val logger = LoggerFactory.getLogger(GoogleSlidesGenerator::class.java)
 
-  fun generate(slideDeck: SlideDeck, slidesService: Slides): String {
+  fun generate(slideDeck: SlideDeck, slidesService: Slides, driveService: Drive, presentationId: String?, copyId: String?): String {
     val presentations = slidesService.presentations()
-    var googleSlidesPresentation = Presentation().setTitle(slideDeck.title)
-
-    // create a presentation
-    googleSlidesPresentation = presentations.create(googleSlidesPresentation)
-      .setFields("layouts,masters,slides,presentationId")
-      .execute()
-    logger.info("Created presentation with ID: ${googleSlidesPresentation.presentationId}")
+    var googleSlidesPresentation = getPresentation(driveService, slidesService, slideDeck.title, presentationId, copyId)
 
     val layouts = googleSlidesPresentation.layouts
     val slides = googleSlidesPresentation.slides
@@ -92,6 +89,39 @@ object GoogleSlidesGenerator {
     presentations.batchUpdate(googleSlidesPresentation.presentationId, batchUpdatePresentationRequest).execute()
     return googleSlidesPresentation.presentationId
   }
+
+  private fun getPresentation(driveService: Drive, slidesService: Slides, title: String, presentationId: String?, copyId: String?): Presentation {
+    return when {
+      presentationId != null -> forPresentation(slidesService, presentationId)
+      copyId != null -> copyPresentation(driveService, slidesService, title, copyId)
+      else -> newPresentation(slidesService, title)
+    }
+  }
+
+  private fun forPresentation(slidesService: Slides, presentationId: String): Presentation {
+    logger.info("Get presentation for ID: $presentationId")
+    return slidesService.presentations().get(presentationId).execute()
+  }
+
+  private fun copyPresentation(driveService: Drive, slidesService: Slides, title: String, copyId: String): Presentation {
+    val driveFile = DriveFile()
+    driveFile.name = title
+    logger.info("Copy presentation from ID: $copyId")
+    val createdDriveFile = driveService.files().copy(copyId, driveFile).execute()
+    return forPresentation(slidesService, createdDriveFile.id)
+  }
+
+  private fun newPresentation(slidesService: Slides, title: String): Presentation {
+    val presentations = slidesService.presentations()
+    var googleSlidesPresentation = Presentation().setTitle(title)
+    // create a presentation
+    googleSlidesPresentation = presentations.create(googleSlidesPresentation)
+      .setFields("layouts,masters,slides,presentationId")
+      .execute()
+    logger.info("Created presentation with ID: ${googleSlidesPresentation.presentationId}")
+    return googleSlidesPresentation
+  }
+
 
   private fun appendCreateImagesRequests(images: List<ImageContent>, presentation: Presentation, slide: Page, placeholder: PageElement, requests: MutableList<Request>) {
     val packingSmithLayer = Layout.get(emptyMap())
@@ -319,20 +349,28 @@ object GoogleSlidesGenerator {
   }
 }
 
-object GoogleSlidesApi {
+object GoogleApi {
   private const val APPLICATION_NAME = "Asciidoctor Google Slides Converter"
   private val JSON_FACTORY: JsonFactory = JacksonFactory.getDefaultInstance()
   private const val TOKENS_DIRECTORY_PATH = "tokens"
 
-  private val SCOPES = listOf(SlidesScopes.PRESENTATIONS)
+  private val SCOPES = listOf(SlidesScopes.PRESENTATIONS, DriveScopes.DRIVE)
 
-  fun getService(credentialsFilePath: String): Slides {
+  fun getSlidesService(credentialsFilePath: String): Slides {
       // Build a new authorized API client service.
       val httpTransport = GoogleNetHttpTransport.newTrustedTransport()
       return Slides.Builder(httpTransport, JSON_FACTORY, getCredentials(credentialsFilePath, httpTransport))
         .setApplicationName(APPLICATION_NAME)
         .build()
     }
+
+  fun getDriveService(credentialsFilePath: String): Drive {
+    // Build a new authorized API client service.
+    val httpTransport = GoogleNetHttpTransport.newTrustedTransport()
+    return Drive.Builder(httpTransport, JSON_FACTORY, getCredentials(credentialsFilePath, httpTransport))
+      .setApplicationName(APPLICATION_NAME)
+      .build()
+  }
 
   /**
    * Creates an authorized Credential object.
