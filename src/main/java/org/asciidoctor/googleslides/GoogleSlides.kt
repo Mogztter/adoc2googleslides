@@ -310,7 +310,7 @@ object GoogleSlidesGenerator {
     for (textRange in textRanges) {
       val textStyle = TextStyle()
       val type = textRange.token.type
-      if (type == "code") {
+      if (type == "code" || type == "kbd") {
         val bgColor = OptionalColor()
         val bgOpaqueColor = OpaqueColor()
         bgOpaqueColor.themeColor = "LIGHT1"
@@ -322,10 +322,6 @@ object GoogleSlidesGenerator {
         textStyle.italic = true
       } else if (type == "strong" || type == "b") {
         textStyle.bold = true
-      } else {
-        // ignore
-        logger.info("Unsupported token type: ${textRange.token.type}")
-        continue
       }
       val textRangeRequest = Request()
       val range = Range()

@@ -200,6 +200,11 @@ sealed class SlideContent {
         // FIXME: list empty???
         return SlideContents(listOf(TextContent("")))
       }
+      if (node.context == "admonition") {
+        if (node.contentModel == "simple") {
+          return SlideContents(listOf(TextContent("${node.style}: ${node.content as String}")))
+        }
+      }
       // FIXME: null content???
       val htmlText = node.content as String? ?: ""
       val body = Jsoup.parseBodyFragment(htmlText).body()

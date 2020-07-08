@@ -1,0 +1,13 @@
+= Importing Data into the Graph
+
+== Question 1
+
+[.statement]
+What Cypher statement do you use to import data from a CSV file?
+Select the correct answer.
+
+[%interactive.answers]
+- [ ] `LOAD DATA`
+- [ ] `IMPORT DATA`
+- [x] `LOAD CSV`
+- [ ] `IMPORT CSV`

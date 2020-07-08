@@ -1,0 +1,7 @@
+= Importing Data into the Graph
+
+== Exercise 1: Loading airport data
+
+[NOTE]
+This exercise has 9 steps.
+Estimated time to complete: 30 minutes.

@@ -45,4 +45,30 @@ ASCII art to represent nodes and relationships""")
     assertThat(listingContents).hasSize(1)
     assertThat(listingContents.first().text).isEqualTo("""(A)-[:LIKES]->(B),(A)-[:LIKES]->(C),(B)-[:LIKES]->(C)(A)-[:LIKES]->(B)-[:LIKES]->(C)<-[:LIKES]-(A)""")
   }
+
+  @Test
+  fun should_extract_kbd_macro() {
+    val document = asciidoctor.load(SlideContentTest::class.java.getResource("/kbb-macro.adoc").readText(), mapOf("attributes" to mapOf("experimental" to "")))
+    val slideContent = SlideContent.from(document.findBy(mapOf("context" to ":paragraph")).first())
+    assertThat(slideContent.contents).hasSize(1)
+    assertThat((slideContent.contents[0] as TextContent).ranges).hasSize(2)
+    assertThat((slideContent.contents[0] as TextContent).ranges[1].token.type).isEqualTo("kbd")
+    assertThat((slideContent.contents[0] as TextContent).ranges[1].token.text).isEqualTo(":play 4.0-neo4j-modeling-exercises")
+  }
+
+  @Test
+  fun should_extract_admonition() {
+    val document = asciidoctor.load(SlideContentTest::class.java.getResource("/admonition.adoc").readText(), mapOf())
+    val slideContent = SlideContent.from(document.findBy(mapOf("context" to ":admonition")).first())
+    assertThat(slideContent.contents).hasSize(1)
+    assertThat((slideContent.contents[0] as TextContent).text).isEqualTo("NOTE: This exercise has 9 steps.\nEstimated time to complete: 30 minutes.")
+  }
+
+  @Test
+  fun should_extract_interactive_checklist() {
+    val document = asciidoctor.load(SlideContentTest::class.java.getResource("/interactive-checklist.adoc").readText(), mapOf())
+    val node = document.findBy(mapOf("context" to ":ulist"))
+    val slideContent = SlideContent.from(node.first())
+    // TODO: add assertions
+  }
 }

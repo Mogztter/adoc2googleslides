@@ -1,0 +1,23 @@
+= Importing Data into the Graph
+
+[.student-exercise]
+== Exercise 2: Loading airport data
+
+[.notes]
+--
+Your first import of airline data will use a CSV file with 1K lines so you will use the standard `LOAD CSV` statement.
+This CSV file has already been cleaned up and is in a normalized format.
+--
+
+[.small]
+--
+In the query edit pane of Neo4j Browser, execute the browser command:
+
+kbd:[:play 4.0-neo4j-modeling-exercises]
+
+and follow the instructions for Exercise 2.
+
+[NOTE]
+This exercise has 9 steps.
+Estimated time to complete: 30 minutes.
+--

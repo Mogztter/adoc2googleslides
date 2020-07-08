@@ -1,0 +1,5 @@
+= Importing Data into the Graph
+
+== Exercise 1: Loading airport data
+
+Open Neo4j Browser and type: kbd:[:play 4.0-neo4j-modeling-exercises]
