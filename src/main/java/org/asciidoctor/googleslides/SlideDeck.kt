@@ -1,6 +1,7 @@
 package org.asciidoctor.googleslides
 
 import org.asciidoctor.ast.*
+import org.asciidoctor.jruby.ast.impl.ListItemImpl
 import org.asciidoctor.jruby.internal.RubyObjectWrapper
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Element

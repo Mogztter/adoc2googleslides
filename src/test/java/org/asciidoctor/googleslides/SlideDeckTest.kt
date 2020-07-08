@@ -101,4 +101,17 @@ Notice that the Cypher keywords MATCH and RETURN are upper-case.""")
       "Summary"
     )
   }
+
+  @Test
+  fun should_extract_interactive_checklist() {
+    val document = asciidoctor.load(SlideContentTest::class.java.getResource("/interactive-checklist.adoc").readText(), mapOf())
+    val slideDeck = SlideDeck.from(document)
+    val slides = slideDeck.slides
+    assertThat(slides).isNotEmpty
+    assertThat(slides).hasSize(1)
+    assertThat(slides[1]).isInstanceOf(TitleAndBodySlide::class.java)
+    assertThat((slides[1] as TitleAndBodySlide).body.contents).hasSize(2)
+    assertThat(((slides[1] as TitleAndBodySlide).body.contents[1] as ListContent).text).isEqualTo("LOAD DATA\nIMPORT DATA\nLOAD CSV\nIMPORT CSV")
+    assertThat(((slides[1] as TitleAndBodySlide).body.contents[1] as ListContent).ranges).hasSize(4)
+  }
 }

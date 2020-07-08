@@ -69,6 +69,10 @@ ASCII art to represent nodes and relationships""")
     val document = asciidoctor.load(SlideContentTest::class.java.getResource("/interactive-checklist.adoc").readText(), mapOf())
     val node = document.findBy(mapOf("context" to ":ulist"))
     val slideContent = SlideContent.from(node.first())
+    assertThat(slideContent.speakerNotes).isEqualTo("\nCorrect answer(s):\n- LOAD CSV\n")
+    assertThat(slideContent.contents).hasSize(1)
+    assertThat((slideContent.contents[0] as ListContent).text).isEqualTo("LOAD DATA\nIMPORT DATA\nLOAD CSV\nIMPORT CSV")
+    assertThat((slideContent.contents[0] as ListContent).ranges).hasSize(4)
     // TODO: add assertions
   }
 }
