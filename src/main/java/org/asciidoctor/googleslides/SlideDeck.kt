@@ -19,9 +19,6 @@ data class SlideDeck(val title: String, val slides: List<Slide>) {
 
     fun from(document: Document): SlideDeck {
       flattenDocument(document)
-      for (block in document.blocks) {
-        logger.info("block: $block")
-      }
       val slides = document.blocks.mapNotNull { block ->
         if (block is Section) {
           val slideTitle = if (block.title == "!") {
