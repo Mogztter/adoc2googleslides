@@ -1,0 +1,50 @@
+{set:cellbgcolor:lightgrey}
+[cols="30,20,20,30",stripes=none,options=header]
+|===
+|Products
+|Parts
+|Assemblies
+|Notes
+|Wood table 40"
+{set:cellbgcolor:white}
+|Wood top 40"
+|Leg assembly
+|Has 4 legs
+|Deluxe wood table 40"
+|Glass top 40"
+|Leg assembly
+|Has 4 legs
+|Wood table 60"
+|Wood top 60"
+|Leg assembly
+|Has 6 legs, table brace
+|Deluxe wood table 60"
+|Glass top 60"
+|Leg assembly
+|Has 6 legs, table brace
+|
+|Leg
+|
+|
+|
+|Leg foot
+|
+|
+|
+|M20 bolt
+|
+|
+|
+|M20 nut
+|
+|
+|
+|Leg plate
+|
+|Uses 2 bolts/nuts per leg
+|
+|Table brace
+|
+|
+|===
+{set:cellbgcolor!}

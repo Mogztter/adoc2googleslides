@@ -11,6 +11,7 @@ import org.slf4j.LoggerFactory
 import java.io.IOException
 import java.net.URL
 import javax.imageio.ImageIO
+import org.asciidoctor.ast.List as AsciidoctorList
 
 
 data class SlideDeck(val title: String, val slides: List<Slide>) {
@@ -134,7 +135,7 @@ sealed class SlideContent {
     private val logger = LoggerFactory.getLogger(SlideContent::class.java)
 
     fun from(node: StructuralNode): SlideContents {
-      if (node is org.asciidoctor.ast.List) {
+      if (node is AsciidoctorList) {
         val textRanges = mutableListOf<TextRange>()
         var currentIndex = 0
         for (item in node.items) {
@@ -222,6 +223,12 @@ sealed class SlideContent {
           return SlideContents(listOf(TextContent("${node.style}: ${node.content as String}")))
         }
       }
+      if (node is Table) {
+        val headerRows = node.header.map { fromAsciidoctorRow(it, "header") }
+        val bodyRows = node.body.map { fromAsciidoctorRow(it, "body") }
+        val footerRows = node.footer.map { fromAsciidoctorRow(it, "footer") }
+        return SlideContents(listOf(TableContent(headerRows + bodyRows + footerRows, node.columns.size)))
+      }
       // FIXME: null content???
       val htmlText = node.content as String? ?: ""
       val body = Jsoup.parseBodyFragment(htmlText).body()
@@ -233,6 +240,13 @@ sealed class SlideContent {
         ranges = textRanges,
         roles = roles
       )))
+    }
+
+    private fun fromAsciidoctorRow(row: Row, style: String): TableRow {
+      val cells = row.cells.map { cell ->
+        TableCell(cell.text, style)
+      }
+      return TableRow(cells)
     }
 
     private fun parseHtmlText(htmlText: String, body: Element, initialIndex: Int = 0): List<TextRange> {
@@ -290,8 +304,9 @@ data class TextContent(val text: String, val ranges: List<TextRange> = emptyList
 data class ListContent(val text: String, val type: String, val ranges: List<TextRange> = emptyList(), val roles: List<String> = emptyList()) : SlideContent()
 data class TextRange(val token: InlineToken, val startIndex: Int, val endIndex: Int)
 data class SlideContents(val contents: List<SlideContent>, val speakerNotes: List<SlideContents> = emptyList())
-
-
+data class TableCell(val text: String, val style: String)
+data class TableRow(val cells: List<TableCell>)
+data class TableContent(val rows: List<TableRow>, val columns: Int) : SlideContent()
 
 sealed class Slide(open val title: String?, open val speakerNotes: List<SlideContents> = emptyList(), open val layoutId: String)
 data class TitleAndTwoColumns(override val title: String?,

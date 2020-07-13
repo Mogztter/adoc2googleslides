@@ -74,4 +74,80 @@ ASCII art to represent nodes and relationships""")
     assertThat((slideContent.contents[0] as ListContent).text).isEqualTo("LOAD DATA\nIMPORT DATA\nLOAD CSV\nIMPORT CSV")
     assertThat((slideContent.contents[0] as ListContent).ranges).hasSize(4)
   }
+
+  @Test
+  fun should_extract_simple_table() {
+    val document = asciidoctor.load(SlideContentTest::class.java.getResource("/table.adoc").readText(), mapOf())
+    val node = document.findBy(mapOf("context" to ":table"))
+    val slideContent = SlideContent.from(node.first())
+    assertThat(slideContent.contents).hasSize(1)
+    assertThat(slideContent.contents[0]).isInstanceOf(TableContent::class.java)
+    assertThat((slideContent.contents[0] as TableContent).columns).isEqualTo(4)
+    assertThat((slideContent.contents[0] as TableContent).rows).containsExactly(
+      TableRow(listOf(
+        TableCell("Products", "header"),
+        TableCell("Parts", "header"),
+        TableCell("Assemblies", "header"),
+        TableCell("Notes", "header"))
+      ),
+      TableRow(listOf(TableCell("Wood table 40\"", "body"),
+        TableCell("Wood top 40\"", "body"),
+        TableCell("Leg assembly", "body"),
+        TableCell("Has 4 legs", "body"))
+      ),
+      TableRow(listOf(
+        TableCell("Deluxe wood table 40\"", "body"),
+        TableCell("Glass top 40\"", "body"),
+        TableCell("Leg assembly", "body"),
+        TableCell("Has 4 legs", "body"))),
+      TableRow(listOf(
+        TableCell("Wood table 60\"", "body"),
+        TableCell("Wood top 60\"", "body"),
+        TableCell("Leg assembly", "body"),
+        TableCell("Has 6 legs, table brace", "body")
+      )),
+      TableRow(listOf(
+        TableCell("Deluxe wood table 60\"", "body"),
+        TableCell("Glass top 60\"", "body"),
+        TableCell("Leg assembly", "body"),
+        TableCell("Has 6 legs, table brace", "body")
+      )),
+      TableRow(listOf(
+        TableCell("", "body"),
+        TableCell("Leg", "body"),
+        TableCell("", "body"),
+        TableCell("", "body")
+      )),
+      TableRow(listOf(
+        TableCell("", "body"),
+        TableCell("Leg foot", "body"),
+        TableCell("", "body"),
+        TableCell("", "body")
+      )),
+      TableRow(listOf(
+        TableCell("", "body"),
+        TableCell("M20 bolt", "body"),
+        TableCell("", "body"),
+        TableCell("", "body")
+      )),
+      TableRow(listOf(
+        TableCell("", "body"),
+        TableCell("M20 nut", "body"),
+        TableCell("", "body"),
+        TableCell("", "body")
+      )),
+      TableRow(listOf(
+        TableCell("", "body"),
+        TableCell("Leg plate", "body"),
+        TableCell("", "body"),
+        TableCell("Uses 2 bolts/nuts per leg", "body")
+      )),
+      TableRow(listOf(
+        TableCell("", "body"),
+        TableCell("Table brace", "body"),
+        TableCell("", "body"),
+        TableCell("", "body")
+      ))
+    )
+  }
 }

@@ -171,6 +171,50 @@ object GoogleSlidesGenerator {
     return googleSlidesPresentation
   }
 
+  private fun appendCreateTableRequests(table: TableContent, slide: Page, requests: MutableList<Request>) {
+    val request = Request()
+    val tableId = UUID.randomUUID().toString()
+    val createTableRequest = CreateTableRequest()
+    createTableRequest.columns = table.columns
+    createTableRequest.rows = table.rows.size
+    createTableRequest.objectId = tableId
+    val pageElementProperties = PageElementProperties()
+    pageElementProperties.pageObjectId = slide.objectId
+    createTableRequest.elementProperties = pageElementProperties
+    request.createTable = createTableRequest
+    requests.add(request)
+    table.rows.forEachIndexed { rowIndex, row ->
+      row.cells.forEachIndexed { columnIndex, cell ->
+        val cellRequest = Request()
+        val insertTextRequest = InsertTextRequest()
+        insertTextRequest.text = cell.text
+        insertTextRequest.objectId = tableId
+        val tableCellLocation = TableCellLocation()
+        tableCellLocation.columnIndex =  columnIndex
+        tableCellLocation.rowIndex = rowIndex
+        insertTextRequest.cellLocation = tableCellLocation
+        cellRequest.insertText = insertTextRequest
+        requests.add(cellRequest)
+        if (cell.style == "header") {
+          val updateTextStyleRequest = UpdateTextStyleRequest()
+          val range = Range()
+          range.startIndex = 0
+          range.endIndex = cell.text.length
+          updateTextStyleRequest.textRange = range
+          val textStyle = TextStyle()
+          textStyle.bold = true
+          updateTextStyleRequest.style = textStyle
+          updateTextStyleRequest.cellLocation = tableCellLocation
+          updateTextStyleRequest.objectId = tableId
+          updateTextStyleRequest.fields = "*"
+          val textRangeRequest = Request()
+          textRangeRequest.updateTextStyle = updateTextStyleRequest
+          requests.add(textRangeRequest)
+        }
+      }
+    }
+  }
+
   private fun appendCreateImagesRequests(images: List<ImageContent>, presentation: Presentation, slide: Page, placeholder: PageElement, requests: MutableList<Request>) {
     val packingSmithLayer = Layout.get(emptyMap())
     // default padding if more than one image on the slide
@@ -237,12 +281,20 @@ object GoogleSlidesGenerator {
     if (images != null && images.isNotEmpty()) {
       appendCreateImagesRequests(images, presentation, googleSlide, placeholder, requests)
     }
+    val tables = contentPerType[TableContent::class.simpleName] as List<TableContent>?
+    if (tables != null && tables.isNotEmpty()) {
+      if (tables.size > 1 ) {
+        logger.warn("Multiple tables per slide are not supported.")
+      }
+      val table = tables.first()
+      appendCreateTableRequests(table, googleSlide, requests)
+    }
     addTextualContent(contents, placeholder.objectId, requests)
   }
 
   private fun addTextualContent(contents: List<SlideContent>, placeholderId: String, requests: MutableList<Request>) {
     var currentIndex = 0
-    contents.filterNot { it is ImageContent }.forEachIndexed { index, content ->
+    contents.filterNot { it is ImageContent || it is TableContent }.forEachIndexed { index, content ->
       when (content) {
         is TextContent -> {
           val text = if (index < contents.size) {
@@ -348,7 +400,6 @@ object GoogleSlidesGenerator {
       } else if (type == "underline") {
         textStyle.underline = true
       } else if (type == "big") {
-        textStyle.underline = true
         val fontSizeDimension = Dimension()
         fontSizeDimension.magnitude = 20.0
         fontSizeDimension.unit = "PT"
