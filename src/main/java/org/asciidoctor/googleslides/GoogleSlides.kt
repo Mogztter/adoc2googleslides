@@ -197,10 +197,6 @@ object GoogleSlidesGenerator {
         requests.add(cellRequest)
         if (cell.style == "header") {
           val updateTextStyleRequest = UpdateTextStyleRequest()
-          val range = Range()
-          range.startIndex = 0
-          range.endIndex = cell.text.length
-          updateTextStyleRequest.textRange = range
           val textStyle = TextStyle()
           textStyle.bold = true
           updateTextStyleRequest.style = textStyle
