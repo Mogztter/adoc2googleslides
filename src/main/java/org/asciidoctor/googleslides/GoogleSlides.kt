@@ -45,8 +45,8 @@ object GoogleSlidesGenerator {
     slideDeck.slides.forEachIndexed { index, slide ->
       val googleSlide = googleSlidesPresentation.slides[index + 1]
       val speakerNotesObjectId = googleSlide.slideProperties.notesPage.notesProperties.speakerNotesObjectId
-      if (speakerNotesObjectId != null && slide.speakerNotes != null && slide.speakerNotes!!.isNotBlank()) {
-        addInsertTextRequest(speakerNotesObjectId, TextContent(slide.speakerNotes!!), 0, requests)
+      if (speakerNotesObjectId != null && slide.speakerNotes.isNotEmpty()) {
+        addTextualContent(slide.speakerNotes.flatMap { it.contents }, speakerNotesObjectId, requests)
       }
       // QUESTION: should we use a "features"/"capabilities" detection mechanism for the layout (i.e. has a title, has a body, has two columns...)
       val pageElements = googleSlide.pageElements
@@ -232,12 +232,16 @@ object GoogleSlidesGenerator {
 
   @Suppress("UNCHECKED_CAST")
   private fun addContent(contents: List<SlideContent>, presentation: Presentation, googleSlide: Page, placeholder: PageElement, requests: MutableList<Request>) {
-    var currentIndex = 0
     val contentPerType = contents.groupBy { it.javaClass.simpleName }
     val images = contentPerType[ImageContent::class.simpleName] as List<ImageContent>?
     if (images != null && images.isNotEmpty()) {
       appendCreateImagesRequests(images, presentation, googleSlide, placeholder, requests)
     }
+    addTextualContent(contents, placeholder.objectId, requests)
+  }
+
+  private fun addTextualContent(contents: List<SlideContent>, placeholderId: String, requests: MutableList<Request>) {
+    var currentIndex = 0
     contents.filterNot { it is ImageContent }.forEachIndexed { index, content ->
       when (content) {
         is TextContent -> {
@@ -246,7 +250,7 @@ object GoogleSlidesGenerator {
           } else {
             content.text
           }
-          addInsertTextRequest(placeholder.objectId, TextContent(text, content.ranges, content.roles, content.fontSize), currentIndex, requests)
+          addInsertTextRequest(placeholderId, TextContent(text, content.ranges, content.roles, content.fontSize), currentIndex, requests)
           currentIndex += text.length
         }
         is ListContent -> {
@@ -255,8 +259,8 @@ object GoogleSlidesGenerator {
           } else {
             content.text
           }
-          addInsertTextRequest(placeholder.objectId, TextContent(text, content.ranges, content.roles), currentIndex, requests)
-          addCreateParagraphBullets(placeholder.objectId, ListContent(text, content.type, content.ranges, content.roles), currentIndex, requests)
+          addInsertTextRequest(placeholderId, TextContent(text, content.ranges, content.roles), currentIndex, requests)
+          addCreateParagraphBullets(placeholderId, ListContent(text, content.type, content.ranges, content.roles), currentIndex, requests)
           currentIndex += text.length
         }
         is ListingContent -> {
@@ -265,7 +269,7 @@ object GoogleSlidesGenerator {
           } else {
             content.text
           }
-          addInsertTextRequest(placeholder.objectId, TextContent(text, ranges = content.ranges, fontSize = content.fontSize), currentIndex, requests)
+          addInsertTextRequest(placeholderId, TextContent(text, ranges = content.ranges, fontSize = content.fontSize), currentIndex, requests)
           currentIndex += text.length
         }
       }
@@ -326,6 +330,21 @@ object GoogleSlidesGenerator {
         textStyle.italic = true
       } else if (type == "strong" || type == "b") {
         textStyle.bold = true
+      } else if (type == "a" && textRange.token is AnchorToken) {
+        val link = Link()
+        link.url = textRange.token.target
+        textStyle.link = link
+        textStyle.underline = true
+        val fgColor = OptionalColor()
+        val fgOpaqueColor = OpaqueColor()
+        val rgbColor = RgbColor()
+        // #0063a3 - dark blue
+        rgbColor.red = 0f
+        rgbColor.green = .388f
+        rgbColor.blue = .639f
+        fgOpaqueColor.rgbColor = rgbColor
+        fgColor.opaqueColor = fgOpaqueColor
+        textStyle.foregroundColor = fgColor
       }
       val textRangeRequest = Request()
       val range = Range()

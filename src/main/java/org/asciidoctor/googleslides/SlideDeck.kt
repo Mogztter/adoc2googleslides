@@ -1,8 +1,8 @@
 package org.asciidoctor.googleslides
 
 import org.asciidoctor.ast.*
-import org.asciidoctor.jruby.ast.impl.ListItemImpl
 import org.asciidoctor.jruby.internal.RubyObjectWrapper
+import org.jruby.java.proxies.ConcreteJavaProxy
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Element
 import org.jsoup.nodes.TextNode
@@ -22,67 +22,82 @@ data class SlideDeck(val title: String, val slides: List<Slide>) {
       flattenDocument(document)
       val slides = document.blocks.mapNotNull { block ->
         if (block is Section) {
-          val slideTitle = if (block.title == "!") {
-            null
-          } else {
-            // FIXME: extract text transformation + range
-            val doc = Jsoup.parseBodyFragment(block.title)
-            doc.text()
-          }
-          val slideBlocks = block.blocks
-          val (speakerNotesBlocks, contentBlocks) = slideBlocks.partition { it.roles.contains("notes") }
-          val speakerNotes = speakerNotesBlocks.joinToString("\n") {
-            val html = it.content as String
-            val doc = Jsoup.parseBodyFragment(html)
-            doc.text()
-          }
-          if (contentBlocks.size == 1 && contentBlocks.first().roles.contains("two-columns")) {
-            val twoColumnsBlock = contentBlocks.first()
-            if (twoColumnsBlock.blocks.size == 2) {
-              val leftBlock = twoColumnsBlock.blocks[0]
-              val rightBlock = twoColumnsBlock.blocks[1]
-              val rightColumnContents = SlideContent.from(rightBlock)
-              val leftColumnContents = SlideContent.from(leftBlock)
-              TitleAndTwoColumns(
-                title = slideTitle,
-                rightColumn = rightColumnContents,
-                leftColumn = leftColumnContents,
-                speakerNotes = speakerNotes + rightColumnContents.speakerNotes.orEmpty() + leftColumnContents.speakerNotes.orEmpty(),
-                layoutId = resolveLayoutFromRoles(block, "TITLE_AND_TWO_COLUMNS")
-              )
-            } else {
-              logger.warn("A two-columns block must have exactly 2 nested blocks, ignoring.")
-              null
-            }
-          } else {
-            val slideContents = contentBlocks.map { SlideContent.from(it) }
-            val contents = if (slideContents.isNotEmpty()) {
-              slideContents.reduce { slide, acc ->
-                SlideContents(slide.contents + acc.contents, slide.speakerNotes.orEmpty() + acc.speakerNotes.orEmpty())
-              }
-            } else {
-              SlideContents(emptyList())
-            }
-            if (contents.contents.isEmpty()) {
-              TitleOnlySlide(
-                title = slideTitle,
-                speakerNotes = speakerNotes + contents.speakerNotes.orEmpty(),
-                layoutId = resolveLayoutFromRoles(block, "TITLE_ONLY")
-              )
-            } else {
-              TitleAndBodySlide(
-                title = slideTitle,
-                body = contents,
-                speakerNotes = speakerNotes + contents.speakerNotes.orEmpty(),
-                layoutId = resolveLayoutFromRoles(block, "TITLE_AND_BODY")
-              )
-            }
-          }
+          fromSection(block)
         } else {
           null
         }
       }
       return SlideDeck(document.doctitle, slides)
+    }
+
+    fun fromSection(block: Section): Slide? {
+      val slideTitle = if (block.title == "!") {
+        null
+      } else {
+        // FIXME: extract text transformation + range
+        val doc = Jsoup.parseBodyFragment(block.title)
+        doc.text()
+      }
+      val slideBlocks = block.blocks
+      val (speakerNotesBlocks, contentBlocks) = slideBlocks.partition { it.roles.contains("notes") }
+      val speakerNotesContents = speakerNotesBlocks.flatMap { structuralNode ->
+        if (structuralNode.blocks.isNotEmpty()) {
+          structuralNode.blocks.map { structuralChildNode ->
+            val structuralChildNodeRubyObject = (structuralChildNode as RubyObjectWrapper).rubyObject
+            (structuralChildNodeRubyObject.callMethod(structuralChildNodeRubyObject.runtime.currentContext, "convert") as ConcreteJavaProxy).toJava(SlideContents::class.java)
+          }
+        } else {
+          val structuralNodeRubyObject = (structuralNode as RubyObjectWrapper).rubyObject
+          listOf((structuralNodeRubyObject.callMethod(structuralNodeRubyObject.runtime.currentContext, "convert") as ConcreteJavaProxy).toJava(SlideContents::class.java))
+        }
+      }
+      return if (contentBlocks.size == 1 && contentBlocks.first().roles.contains("two-columns")) {
+        val twoColumnsBlock = contentBlocks.first()
+        if (twoColumnsBlock.blocks.size == 2) {
+          val leftBlock = twoColumnsBlock.blocks[0]
+          val rightBlock = twoColumnsBlock.blocks[1]
+          val rightBlockRuby = (rightBlock as RubyObjectWrapper).rubyObject
+          val leftBlockRuby = (leftBlock as RubyObjectWrapper).rubyObject
+          val rightColumnContents = (rightBlockRuby.callMethod(rightBlockRuby.runtime.currentContext, "convert") as ConcreteJavaProxy).toJava(SlideContents::class.java)
+          val leftColumnContents = (leftBlockRuby.callMethod(leftBlockRuby.runtime.currentContext, "convert") as ConcreteJavaProxy).toJava(SlideContents::class.java)
+          TitleAndTwoColumns(
+            title = slideTitle,
+            rightColumn = rightColumnContents,
+            leftColumn = leftColumnContents,
+            speakerNotes = speakerNotesContents + rightColumnContents.speakerNotes + leftColumnContents.speakerNotes,
+            layoutId = resolveLayoutFromRoles(block, "TITLE_AND_TWO_COLUMNS")
+          )
+        } else {
+          logger.warn("A two-columns block must have exactly 2 nested blocks, ignoring.")
+          null
+        }
+      } else {
+        val slideContents = contentBlocks.map { structuralNode ->
+          val structuralNodeRubyObject = (structuralNode as RubyObjectWrapper).rubyObject
+          (structuralNodeRubyObject.callMethod(structuralNodeRubyObject.runtime.currentContext, "convert") as ConcreteJavaProxy).toJava(SlideContents::class.java)
+        }
+        val contents = if (slideContents.isNotEmpty()) {
+          slideContents.reduce { slide, acc ->
+            SlideContents(slide.contents + acc.contents, slide.speakerNotes + acc.speakerNotes)
+          }
+        } else {
+          SlideContents(emptyList())
+        }
+        if (contents.contents.isEmpty()) {
+          TitleOnlySlide(
+            title = slideTitle,
+            speakerNotes = speakerNotesContents + contents.speakerNotes,
+            layoutId = resolveLayoutFromRoles(block, "TITLE_ONLY")
+          )
+        } else {
+          TitleAndBodySlide(
+            title = slideTitle,
+            body = contents,
+            speakerNotes = speakerNotesContents + contents.speakerNotes,
+            layoutId = resolveLayoutFromRoles(block, "TITLE_AND_BODY")
+          )
+        }
+      }
     }
 
     private fun resolveLayoutFromRoles(block: ContentNode, defaultValue: String): String {
@@ -147,6 +162,7 @@ sealed class SlideContent {
         } else {
           ""
         }
+        val speakerNotesContents = listOf(SlideContents(listOf(TextContent(speakerNotes))))
         val rawText = node.items.joinToString("\n") {
           val text = (it as ListItem).text
           val doc = Jsoup.parseBodyFragment(text)
@@ -158,7 +174,7 @@ sealed class SlideContent {
           ranges = textRanges,
           roles = node.roles + node.parent.roles
         )
-        return SlideContents(listOf(listContent), speakerNotes)
+        return SlideContents(listOf(listContent), speakerNotesContents)
       }
       if (node.context == "image") {
         val url = node.document.getAttribute("imagesdir") as String + node.getAttribute("target") as String
@@ -195,7 +211,7 @@ sealed class SlideContent {
         val list = node.blocks.map { from(it) }
         if (list.isNotEmpty()) {
           return list.reduce { slide, acc ->
-            SlideContents(slide.contents + acc.contents, slide.speakerNotes.orEmpty() + acc.speakerNotes.orEmpty())
+            SlideContents(slide.contents + acc.contents, slide.speakerNotes + acc.speakerNotes)
           }
         }
         // FIXME: list empty???
@@ -235,7 +251,11 @@ sealed class SlideContent {
           }
           is Element -> {
             val text = Parser.unescapeEntities(htmlNode.text(), true)
-            TextToken(text, htmlNode.tagName())
+            if (htmlNode.tagName() == "a") {
+              AnchorToken(text, htmlNode.attr("href"), htmlNode.tagName())
+            } else {
+              TextToken(text, htmlNode.tagName())
+            }
           }
           else -> throw IllegalArgumentException("Unable to parse: $htmlNode")
         }
@@ -252,28 +272,33 @@ data class ListingContent(val text: String, val fontSize: Int) : SlideContent() 
   val ranges = listOf(TextRange(TextToken(text, "code"), 0, text.length))
 }
 
+sealed class InlineToken(open val text: String, open val type: String)
+data class TextToken(override val text: String, override val type: String): InlineToken(text, type)
+data class AnchorToken(override val text: String, val target: String, override val type: String): InlineToken(text, type)
+
 data class ImageContent(val url: String, val height: Int, val width: Int, val padding: Double = 0.0, val offsetX: Double = 0.0, val offsetY: Double = 0.0) : SlideContent()
 data class TextContent(val text: String, val ranges: List<TextRange> = emptyList(), val roles: List<String> = emptyList(), val fontSize: Int? = null) : SlideContent()
 data class ListContent(val text: String, val type: String, val ranges: List<TextRange> = emptyList(), val roles: List<String> = emptyList()) : SlideContent()
-data class TextRange(val token: TextToken, val startIndex: Int, val endIndex: Int)
-data class TextToken(val text: String, val type: String)
-data class SlideContents(val contents: List<SlideContent>, val speakerNotes: String? = null)
+data class TextRange(val token: InlineToken, val startIndex: Int, val endIndex: Int)
+data class SlideContents(val contents: List<SlideContent>, val speakerNotes: List<SlideContents> = emptyList())
 
-sealed class Slide(open val title: String?, open val speakerNotes: String? = null, open val layoutId: String)
+
+
+sealed class Slide(open val title: String?, open val speakerNotes: List<SlideContents> = emptyList(), open val layoutId: String)
 data class TitleAndTwoColumns(override val title: String?,
                               val rightColumn: SlideContents,
                               val leftColumn: SlideContents,
-                              override val speakerNotes: String? = null,
+                              override val speakerNotes: List<SlideContents> = emptyList(),
                               override val layoutId: String)
   : Slide(title, speakerNotes, "TITLE_AND_TWO_COLUMNS")
 
 data class TitleAndBodySlide(override val title: String?,
                              val body: SlideContents,
-                             override val speakerNotes: String? = null,
+                             override val speakerNotes: List<SlideContents> = emptyList(),
                              override val layoutId: String)
   : Slide(title, speakerNotes, layoutId)
 
 data class TitleOnlySlide(override val title: String?,
-                          override val speakerNotes: String? = null,
+                          override val speakerNotes: List<SlideContents> = emptyList(),
                           override val layoutId: String)
   : Slide(title, speakerNotes, layoutId)

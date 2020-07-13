@@ -18,6 +18,13 @@ Show the students:
 * Cypher RefCard: http://neo4j.com/docs/cypher-refcard/current/
 --
 
+=== References
+
+Throughout this training, you should refer to:
+[square]
+* https://neo4j.com/docs/cypher-manual/current/[Neo4j Cypher Manual^]
+* http://neo4j.com/docs/cypher-refcard/current/[Cypher Reference card^]
+
 == What is Cypher?
 
 [.two-columns]

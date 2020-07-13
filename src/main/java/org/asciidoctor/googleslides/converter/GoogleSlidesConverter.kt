@@ -2,19 +2,18 @@ package org.asciidoctor.googleslides.converter
 
 import org.asciidoctor.ast.ContentNode
 import org.asciidoctor.ast.Document
+import org.asciidoctor.ast.Section
+import org.asciidoctor.ast.StructuralNode
 import org.asciidoctor.converter.AbstractConverter
 import org.asciidoctor.converter.ConverterFor
-import org.asciidoctor.googleslides.GoogleApi
-import org.asciidoctor.googleslides.GoogleSlidesGenerator
-import org.asciidoctor.googleslides.SlideDeck
-import org.asciidoctor.jruby.ast.impl.ContentNodeImpl
+import org.asciidoctor.googleslides.*
 import org.asciidoctor.jruby.ast.impl.PhraseNodeImpl
 import org.slf4j.LoggerFactory
 import java.io.OutputStream
 
 
 @ConverterFor("googleslides")
-class GoogleSlidesConverter(backend: String?, private val opts: Map<String?, Any?>?) : AbstractConverter<String>(backend, opts) {
+class GoogleSlidesConverter(backend: String?, private val opts: Map<String?, Any?>?) : AbstractConverter<Any>(backend, opts) {
   private val logger = LoggerFactory.getLogger(GoogleSlidesConverter::class.java)
 
   private val quoteTags = mapOf(
@@ -28,28 +27,39 @@ class GoogleSlidesConverter(backend: String?, private val opts: Map<String?, Any
     "subscript" to HtmlTag("<sub>", "</sub>")
   )
 
-  override fun convert(node: ContentNode, transform: String?, o: Map<Any, Any>): String? {
-    return when (node) {
-      is Document -> {
-        val credentialsPath = getCredentialsPath(node)
-        val presentationId = getPresentationId(node)
-        val copyId = getCopyId(node)
+  override fun convert(node: ContentNode, transform: String?, o: Map<Any, Any>): Any? {
+    return when (transform ?: node.nodeName) {
+      "document" -> {
+        val document = node as Document
+        val credentialsPath = getCredentialsPath(document)
+        val presentationId = getPresentationId(document)
+        val copyId = getCopyId(document)
         val slidesService = GoogleApi.getSlidesService(credentialsPath)
         val driveService = GoogleApi.getDriveService(credentialsPath)
-        GoogleSlidesGenerator.generate(SlideDeck.from(node), slidesService, driveService, presentationId, copyId)
+        GoogleSlidesGenerator.generate(SlideDeck.from(document), slidesService, driveService, presentationId, copyId)
       }
-      // FIXME: should delegate to the built-in HTML5 converter... :|
-      is PhraseNodeImpl -> {
-        val (open, close) = quoteTags.getValue(node.type)
+      "section" -> {
+        SlideDeck.fromSection(node as Section)
+      }
+      "ulist", "olist", "dlist", "paragraph", "image", "listing" -> {
+        SlideContent.from(node as StructuralNode)
+      }
+      "inline_quoted" -> {
+        val (open, close) = quoteTags.getValue((node as PhraseNodeImpl).type)
         "$open${node.text}$close"
       }
+      "inline_anchor" -> {
+        """<a href="${(node as PhraseNodeImpl).target}">${node.text}</a>"""
+      }
       else -> {
-        (node as ContentNodeImpl).getString("text")
+        // ignore audio, video...
+        logger.warn("Unsupported node: ${node.nodeName}")
+        ""
       }
     }
   }
 
-  override fun write(presentationId: String?, out: OutputStream?) {
+  override fun write(presentation: Any?, out: OutputStream?) {
     // no-op
   }
 
