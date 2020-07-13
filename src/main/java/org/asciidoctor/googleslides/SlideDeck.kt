@@ -252,7 +252,16 @@ sealed class SlideContent {
           is Element -> {
             val text = Parser.unescapeEntities(htmlNode.text(), true)
             if (htmlNode.tagName() == "a") {
-              AnchorToken(text, htmlNode.attr("href"), htmlNode.tagName())
+              AnchorToken(text, htmlNode.attr("href"), "anchor")
+            } else if (htmlNode.tagName() == "span") {
+              val classNames = htmlNode.classNames()
+              if (classNames.contains("underline")) {
+                TextToken(text, "underline")
+              } else  if (classNames.contains("big")) {
+                TextToken(text, "big")
+              } else {
+                TextToken(text, "text")
+              }
             } else {
               TextToken(text, htmlNode.tagName())
             }

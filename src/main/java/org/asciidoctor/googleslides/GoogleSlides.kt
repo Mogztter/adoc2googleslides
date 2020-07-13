@@ -330,7 +330,7 @@ object GoogleSlidesGenerator {
         textStyle.italic = true
       } else if (type == "strong" || type == "b") {
         textStyle.bold = true
-      } else if (type == "a" && textRange.token is AnchorToken) {
+      } else if (type == "anchor" && textRange.token is AnchorToken) {
         val link = Link()
         link.url = textRange.token.target
         textStyle.link = link
@@ -345,6 +345,14 @@ object GoogleSlidesGenerator {
         fgOpaqueColor.rgbColor = rgbColor
         fgColor.opaqueColor = fgOpaqueColor
         textStyle.foregroundColor = fgColor
+      } else if (type == "underline") {
+        textStyle.underline = true
+      } else if (type == "big") {
+        textStyle.underline = true
+        val fontSizeDimension = Dimension()
+        fontSizeDimension.magnitude = 20.0
+        fontSizeDimension.unit = "PT"
+        textStyle.fontSize = fontSizeDimension
       }
       val textRangeRequest = Request()
       val range = Range()

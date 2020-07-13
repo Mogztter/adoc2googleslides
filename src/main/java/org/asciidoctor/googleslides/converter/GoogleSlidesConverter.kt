@@ -41,20 +41,29 @@ class GoogleSlidesConverter(backend: String?, private val opts: Map<String?, Any
       "section" -> {
         SlideDeck.fromSection(node as Section)
       }
-      "ulist", "olist", "dlist", "paragraph", "image", "listing" -> {
-        SlideContent.from(node as StructuralNode)
-      }
       "inline_quoted" -> {
-        val (open, close) = quoteTags.getValue((node as PhraseNodeImpl).type)
-        "$open${node.text}$close"
+        val type = (node as PhraseNodeImpl).type
+        if (type == "unquoted") {
+          if (node.roles.isNotEmpty()) {
+            """<span class="${node.role}">${node.text}</span>"""
+          } else {
+            "<span>${node.text}</span>"
+          }
+        } else {
+          val (open, close) = quoteTags.getValue(type)
+          "$open${node.text}$close"
+        }
       }
       "inline_anchor" -> {
         """<a href="${(node as PhraseNodeImpl).target}">${node.text}</a>"""
       }
       else -> {
-        // ignore audio, video...
-        logger.warn("Unsupported node: ${node.nodeName}")
-        ""
+        if (node is StructuralNode) {
+          SlideContent.from(node)
+        } else {
+          logger.warn("Unsupported node: ${node.nodeName}, content will be empty!")
+          SlideContents(contents = emptyList())
+        }
       }
     }
   }
