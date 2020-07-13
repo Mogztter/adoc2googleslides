@@ -110,7 +110,7 @@ object GoogleSlidesGenerator {
     deleteExistingSlides(slides, requests)
 
     addCreateTitleSlide(layouts, requests)
-    logger.info("Layouts available: ${layouts.map { it.layoutProperties.name }} for presentation id: ${googleSlidesPresentation.presentationId}")
+    logger.info("Layouts available: ${layouts.map { it.layoutProperties.name + " (${it.layoutProperties.displayName})" }} for presentation id: ${googleSlidesPresentation.presentationId}")
 
     for (slide in slideDeck.slides) {
       val layout = layouts.find { it.layoutProperties.name == slide.layoutId }
