@@ -372,6 +372,11 @@ object GoogleSlidesGenerator {
         bgOpaqueColor.themeColor = "LIGHT1"
         bgColor.opaqueColor = bgOpaqueColor
         textStyle.backgroundColor = bgColor
+        val fgColor = OptionalColor()
+        val fgOpaqueColor = OpaqueColor()
+        fgOpaqueColor.themeColor = "DARK1"
+        fgColor.opaqueColor = fgOpaqueColor
+        textStyle.foregroundColor = fgColor
         textStyle.fontFamily = "Roboto Mono"
         textStyle.bold = true
       } else if (type == "em") {
