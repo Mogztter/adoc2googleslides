@@ -7,7 +7,7 @@ import java.io.File
 import java.nio.file.Paths
 import kotlin.test.*
 
-//@Ignore("Integration tests")
+@Ignore("Integration tests")
 class ConverterTest {
 
   private val asciidoctor = Asciidoctor.Factory.create()
