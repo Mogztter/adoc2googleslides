@@ -215,13 +215,15 @@ sealed class SlideContent {
             SlideContents(slide.contents + acc.contents, slide.speakerNotes + acc.speakerNotes)
           }
         }
-        // FIXME: list empty???
+        logger.warn("Open block is empty, ignoring.")
         return SlideContents(listOf(TextContent("")))
       }
       if (node.context == "admonition") {
-        val roles = node.roles + node.parent.roles
         return if (node.contentModel == "simple") {
-          SlideContents(listOf(TextContent("${node.style}: ${node.content as String}", roles = roles)))
+          SlideContents(listOf(TextContent(
+            text = "${node.style}: ${node.content as String}",
+            roles = node.roles + node.parent.roles
+          )))
         } else {
           logger.warn("Complex admonition are not supported, ignoring.")
           SlideContents(listOf())
@@ -231,18 +233,21 @@ sealed class SlideContent {
         val headerRows = node.header.map { fromAsciidoctorRow(it, "header") }
         val bodyRows = node.body.map { fromAsciidoctorRow(it, "body") }
         val footerRows = node.footer.map { fromAsciidoctorRow(it, "footer") }
-        return SlideContents(listOf(TableContent(headerRows + bodyRows + footerRows, node.columns.size)))
+        return SlideContents(listOf(TableContent(
+          rows = headerRows + bodyRows + footerRows,
+          columns = node.columns.size,
+          roles = node.roles + node.parent.roles
+        )))
       }
       val content = node.content
       return if (content is String) {
         val body = Jsoup.parseBodyFragment(content).body()
         val textRanges = parseHtmlText(content, body)
-        val roles = node.roles + node.parent.roles
         val text = Parser.unescapeEntities(body.text(), true)
         SlideContents(listOf(TextContent(
           text = text,
           ranges = textRanges,
-          roles = roles
+          roles = node.roles + node.parent.roles
         )))
       } else {
         logger.warn("Unable to retrieve the content for ${node.context}, ignoring.")
@@ -273,19 +278,17 @@ sealed class SlideContent {
           }
           is Element -> {
             val text = Parser.unescapeEntities(htmlNode.text(), true)
-            if (htmlNode.tagName() == "a") {
-              AnchorToken(text, htmlNode.attr("href"), "anchor")
-            } else if (htmlNode.tagName() == "span") {
-              val classNames = htmlNode.classNames()
-              if (classNames.contains("underline")) {
-                TextToken(text, "underline")
-              } else  if (classNames.contains("big")) {
-                TextToken(text, "big")
-              } else {
-                TextToken(text, "text")
+            when {
+              htmlNode.tagName() == "a" -> AnchorToken(text, htmlNode.attr("href"), "anchor")
+              htmlNode.tagName() == "span" -> {
+                val classNames = htmlNode.classNames()
+                when {
+                  classNames.contains("underline") -> TextToken(text, "underline")
+                  classNames.contains("big") -> TextToken(text, "big")
+                  else -> TextToken(text, "text")
+                }
               }
-            } else {
-              TextToken(text, htmlNode.tagName())
+              else -> TextToken(text, htmlNode.tagName())
             }
           }
           else -> throw IllegalArgumentException("Unable to parse: $htmlNode")
@@ -314,7 +317,7 @@ data class TextRange(val token: InlineToken, val startIndex: Int, val endIndex: 
 data class SlideContents(val contents: List<SlideContent>, val speakerNotes: List<SlideContents> = emptyList())
 data class TableCell(val text: String, val style: String)
 data class TableRow(val cells: List<TableCell>)
-data class TableContent(val rows: List<TableRow>, val columns: Int) : SlideContent()
+data class TableContent(val rows: List<TableRow>, val columns: Int, val roles: List<String> = emptyList()) : SlideContent()
 
 sealed class Slide(open val title: String?, open val speakerNotes: List<SlideContents> = emptyList(), open val layoutId: String)
 data class TitleAndTwoColumns(override val title: String?,
