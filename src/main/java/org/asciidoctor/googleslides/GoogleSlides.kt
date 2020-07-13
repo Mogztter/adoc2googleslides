@@ -35,46 +35,9 @@ object GoogleSlidesGenerator {
   private val logger = LoggerFactory.getLogger(GoogleSlidesGenerator::class.java)
 
   fun generate(slideDeck: SlideDeck, slidesService: Slides, driveService: Drive, presentationId: String?, copyId: String?): String {
-    // configure the logger level otherwise it get really verbose when gradle --info is configured
-    val httpTransportLogger = Logger.getLogger(HttpTransport::class.java.name)
-    httpTransportLogger.level = when {
-      logger.isTraceEnabled -> Level.ALL
-      logger.isDebugEnabled -> Level.CONFIG
-      logger.isInfoEnabled -> Level.INFO
-      logger.isWarnEnabled -> Level.WARNING
-      else -> Level.SEVERE
-    }
-    val presentations = slidesService.presentations()
-    var googleSlidesPresentation = getPresentation(driveService, slidesService, slideDeck.title, presentationId, copyId)
+    val googleSlidesPresentation = initialize(slideDeck, slidesService, driveService, presentationId, copyId)
 
-    val layouts = googleSlidesPresentation.layouts
-    val slides = googleSlidesPresentation.slides
-
-    // Create slides
-    val batchUpdatePresentationRequest = BatchUpdatePresentationRequest()
-    var requests = mutableListOf<Request>()
-    deleteExistingSlides(slides, requests)
-
-    addCreateTitleSlide(layouts, requests)
-    logger.info("Layouts available: ${layouts.map { it.layoutProperties.name }} for presentation id: ${googleSlidesPresentation.presentationId}")
-
-    for (slide in slideDeck.slides) {
-      val layout = layouts.find { it.layoutProperties.name == slide.layoutId }
-      if (layout == null) {
-        logger.warn("Unable to find a layout for id: ${slide.layoutId} and slide: $slide")
-      }
-      addCreateSlideRequest(layout, UUID.randomUUID().toString(), requests)
-    }
-    batchUpdatePresentationRequest.requests = requests
-    presentations.batchUpdate(googleSlidesPresentation.presentationId, batchUpdatePresentationRequest).execute()
-
-    // Reload presentation
-    googleSlidesPresentation = presentations.get(googleSlidesPresentation.presentationId)
-      .setFields("title,layouts,masters,slides,presentationId")
-      .execute()
-
-    // Populate slides
-    requests = mutableListOf()
+    val requests = mutableListOf<Request>()
 
     val firstSlideTitle = googleSlidesPresentation.slides[0].pageElements.first { it.shape.placeholder.type == "CENTERED_TITLE" }
     addInsertTextRequest(firstSlideTitle.objectId, TextContent(googleSlidesPresentation.title), 0, requests)
@@ -119,9 +82,50 @@ object GoogleSlidesGenerator {
       }
     }
     logger.debug("batchUpdatePresentationRequest.requests: $requests")
+    val batchUpdatePresentationRequest = BatchUpdatePresentationRequest()
+    batchUpdatePresentationRequest.requests = requests
+    slidesService.presentations().batchUpdate(googleSlidesPresentation.presentationId, batchUpdatePresentationRequest).execute()
+    return googleSlidesPresentation.presentationId
+  }
+
+  private fun initialize(slideDeck: SlideDeck, slidesService: Slides, driveService: Drive, presentationId: String?, copyId: String?): Presentation {
+    // configure the logger level otherwise it get really verbose when gradle --info is configured
+    val httpTransportLogger = Logger.getLogger(HttpTransport::class.java.name)
+    httpTransportLogger.level = when {
+      logger.isTraceEnabled -> Level.ALL
+      logger.isDebugEnabled -> Level.CONFIG
+      logger.isInfoEnabled -> Level.INFO
+      logger.isWarnEnabled -> Level.WARNING
+      else -> Level.SEVERE
+    }
+    val presentations = slidesService.presentations()
+    val googleSlidesPresentation = getPresentation(driveService, slidesService, slideDeck.title, presentationId, copyId)
+
+    val layouts = googleSlidesPresentation.layouts
+    val slides = googleSlidesPresentation.slides
+
+    // Create slides
+    val batchUpdatePresentationRequest = BatchUpdatePresentationRequest()
+    val requests = mutableListOf<Request>()
+    deleteExistingSlides(slides, requests)
+
+    addCreateTitleSlide(layouts, requests)
+    logger.info("Layouts available: ${layouts.map { it.layoutProperties.name }} for presentation id: ${googleSlidesPresentation.presentationId}")
+
+    for (slide in slideDeck.slides) {
+      val layout = layouts.find { it.layoutProperties.name == slide.layoutId }
+      if (layout == null) {
+        logger.warn("Unable to find a layout for id: ${slide.layoutId} and slide: $slide")
+      }
+      addCreateSlideRequest(layout, UUID.randomUUID().toString(), requests)
+    }
     batchUpdatePresentationRequest.requests = requests
     presentations.batchUpdate(googleSlidesPresentation.presentationId, batchUpdatePresentationRequest).execute()
-    return googleSlidesPresentation.presentationId
+
+    // Reload presentation
+    return presentations.get(googleSlidesPresentation.presentationId)
+      .setFields("title,layouts,masters,slides,presentationId")
+      .execute()
   }
 
   private fun addTitle(pageElements: MutableList<PageElement>, slide: Slide, requests: MutableList<Request>) {
