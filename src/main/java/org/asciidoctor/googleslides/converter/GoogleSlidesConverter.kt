@@ -54,6 +54,14 @@ class GoogleSlidesConverter(backend: String?, private val opts: Map<String?, Any
           "$open${node.text}$close"
         }
       }
+      "inline_kbd" -> {
+        val keys = (node.getAttribute("keys") as List<*>)
+        if (keys.size == 1) {
+         "<kbd>${keys[0]}</kbd>"
+        } else {
+          """<span class="keyseq"><kbd>${keys.joinToString { "</kbd>+<kbd>" }}</kbd></span>"""
+        }
+      }
       "inline_anchor" -> {
         """<a href="${(node as PhraseNodeImpl).target}">${node.text}</a>"""
       }

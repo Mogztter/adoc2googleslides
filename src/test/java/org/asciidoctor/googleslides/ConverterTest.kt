@@ -23,6 +23,7 @@ class ConverterTest {
       .backend("googleslides")
       .attributes(
         AttributesBuilder.attributes()
+          .attribute("experimental", "")
           .attribute("google-slides-copy-id", masterPresentationId)
           .attribute("google-slides-credentials-path", credentialsPath)
       ))

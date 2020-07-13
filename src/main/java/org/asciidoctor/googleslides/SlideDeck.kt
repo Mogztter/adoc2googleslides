@@ -219,8 +219,12 @@ sealed class SlideContent {
         return SlideContents(listOf(TextContent("")))
       }
       if (node.context == "admonition") {
-        if (node.contentModel == "simple") {
-          return SlideContents(listOf(TextContent("${node.style}: ${node.content as String}")))
+        val roles = node.roles + node.parent.roles
+        return if (node.contentModel == "simple") {
+          SlideContents(listOf(TextContent("${node.style}: ${node.content as String}", roles = roles)))
+        } else {
+          logger.warn("Complex admonition are not supported, ignoring.")
+          SlideContents(listOf())
         }
       }
       if (node is Table) {
@@ -229,17 +233,21 @@ sealed class SlideContent {
         val footerRows = node.footer.map { fromAsciidoctorRow(it, "footer") }
         return SlideContents(listOf(TableContent(headerRows + bodyRows + footerRows, node.columns.size)))
       }
-      // FIXME: null content???
-      val htmlText = node.content as String? ?: ""
-      val body = Jsoup.parseBodyFragment(htmlText).body()
-      val textRanges = parseHtmlText(htmlText, body)
-      val roles = node.roles + node.parent.roles
-      val text = Parser.unescapeEntities(body.text(), true)
-      return SlideContents(listOf(TextContent(
-        text = text,
-        ranges = textRanges,
-        roles = roles
-      )))
+      val content = node.content
+      return if (content is String) {
+        val body = Jsoup.parseBodyFragment(content).body()
+        val textRanges = parseHtmlText(content, body)
+        val roles = node.roles + node.parent.roles
+        val text = Parser.unescapeEntities(body.text(), true)
+        SlideContents(listOf(TextContent(
+          text = text,
+          ranges = textRanges,
+          roles = roles
+        )))
+      } else {
+        logger.warn("Unable to retrieve the content for ${node.context}, ignoring.")
+        SlideContents(listOf())
+      }
     }
 
     private fun fromAsciidoctorRow(row: Row, style: String): TableRow {

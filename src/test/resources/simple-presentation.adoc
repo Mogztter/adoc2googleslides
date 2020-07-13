@@ -53,3 +53,18 @@ image::AsciiArt.png[Cypher AsciiArt,width=450px,align=center]
 Being a declarative language, Cypher focuses on the clarity of expressing *what* to retrieve from a graph, not on *how* to retrieve it.
 You can think of Cypher as mapping English language sentence structure to patterns in a graph.
 --
+
+== Exercise 3: Profiling queries
+
+[.small]
+--
+In the query edit pane of Neo4j Browser, execute the browser command:
+
+kbd:[:play 4.0-neo4j-modeling-exercises]
+
+and follow the instructions for Exercise 3.
+
+[NOTE]
+This exercise has 2 steps.
+Estimated time to complete: 15 minutes.
+--
