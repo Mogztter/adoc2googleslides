@@ -59,11 +59,63 @@ object GoogleSlidesGenerator {
           }
           is TitleAndBodySlide -> {
             addTitle(pageElements, slide, requests)
-            val slideBody = pageElements.find { it.shape.placeholder.type == "BODY" }
-            if (slideBody == null) {
+            val slideBodyElements = pageElements.filter { it.shape.placeholder.type == "BODY" }
+            if (slideBodyElements.isEmpty()) {
               logger.warn("No BODY found on the slide elements: $pageElements, body won't be added")
             } else {
-              addContent(slide.body.contents, googleSlidesPresentation, googleSlide, slideBody, requests)
+              val slideContents = slide.body.contents
+              if (slideBodyElements.size == 1) {
+                addContent(slideContents, googleSlidesPresentation, googleSlide, slideBodyElements[0], requests)
+              } else {
+                // layout with more than one body element
+                if (slideContents.size == slideBodyElements.size) {
+                  slideBodyElements.forEachIndexed { slideBodyElementIndex, slideBodyElement ->
+                    addContent(listOf(slideContents[slideBodyElementIndex]), googleSlidesPresentation, googleSlide, slideBodyElement, requests)
+                  }
+                } else if (slideContents.size > slideBodyElements.size) {
+                  val imageContents = slideContents.filterIsInstance<ImageContent>()
+                  if (imageContents.isNotEmpty()) {
+                    val firstIndexOfImageContent = slideContents.indexOfFirst { it is ImageContent }
+                    addContent(imageContents, googleSlidesPresentation, googleSlide, slideBodyElements[firstIndexOfImageContent], requests)
+                    val textualContents = slideContents.filterNot { it is ImageContent }
+                    if (textualContents.size < slideBodyElements.size) {
+                      textualContents.forEachIndexed { textualContentIndex, textualContent ->
+                        val slideBodyElementIndex = if (textualContentIndex >= firstIndexOfImageContent) textualContentIndex + 1 else textualContentIndex
+                        addContent(listOf(textualContent), googleSlidesPresentation, googleSlide, slideBodyElements[slideBodyElementIndex], requests)
+                      }
+                    } else {
+                      // stack remaining textual contents into the last body element
+                      val lastBodyIndex = if (firstIndexOfImageContent == slideBodyElements.size - 1) slideBodyElements.size - 2 else slideBodyElements.size - 1
+                      textualContents.forEachIndexed { textualContentIndex, textualContent ->
+                        val slideBodyElementIndex = if (textualContentIndex >= firstIndexOfImageContent) textualContentIndex + 1 else textualContentIndex
+                        if (slideBodyElementIndex == lastBodyIndex) {
+                          val remainingTextualContents = textualContents.subList(textualContentIndex, textualContents.size)
+                          addContent(remainingTextualContents, googleSlidesPresentation, googleSlide, slideBodyElements[slideBodyElementIndex], requests)
+                        } else {
+                          addContent(listOf(textualContent), googleSlidesPresentation, googleSlide, slideBodyElements[slideBodyElementIndex], requests)
+                        }
+                      }
+                    }
+                  } else {
+                    // stack remaining textual contents into the last body element
+                    val lastBodyIndex = slideBodyElements.size - 1
+                    slideContents.forEachIndexed { slideContentIndex, slideContent ->
+                      if (slideContentIndex == lastBodyIndex) {
+                        val remainingSlideContents = slideContents.subList(slideContentIndex, slideContents.size)
+                        addContent(remainingSlideContents, googleSlidesPresentation, googleSlide, slideBodyElements[slideContentIndex], requests)
+                      } else {
+                        addContent(listOf(slideContent), googleSlidesPresentation, googleSlide, slideBodyElements[slideContentIndex], requests)
+                      }
+                    }
+                  }
+                } else {
+                  // less content than body areas...
+                  logger.warn("Slide contains less content than body elements...")
+                  slideContents.forEachIndexed { slideContentIndex, slideContent ->
+                    addContent(listOf(slideContent), googleSlidesPresentation, googleSlide, slideBodyElements[slideContentIndex], requests)
+                  }
+                }
+              }
             }
           }
           is TitleAndTwoColumns -> {
@@ -103,14 +155,13 @@ object GoogleSlidesGenerator {
 
     val layouts = googleSlidesPresentation.layouts
     val slides = googleSlidesPresentation.slides
+    logger.info("Layouts available: ${layouts.map { it.layoutProperties.name + " (${it.layoutProperties.displayName})" }} for presentation id: ${googleSlidesPresentation.presentationId}")
 
     // Create slides
     val batchUpdatePresentationRequest = BatchUpdatePresentationRequest()
     val requests = mutableListOf<Request>()
     deleteExistingSlides(slides, requests)
-
     addCreateTitleSlide(layouts, requests)
-    logger.info("Layouts available: ${layouts.map { it.layoutProperties.name + " (${it.layoutProperties.displayName})" }} for presentation id: ${googleSlidesPresentation.presentationId}")
 
     for (slide in slideDeck.slides) {
       val layout = layouts.find { it.layoutProperties.name == slide.layoutId }
@@ -137,7 +188,7 @@ object GoogleSlidesGenerator {
     }
   }
 
-  private fun getPresentation(driveService: Drive, slidesService: Slides, title: String, presentationId: String?, copyId: String?): Presentation {
+  internal fun getPresentation(driveService: Drive, slidesService: Slides, title: String, presentationId: String?, copyId: String?): Presentation {
     return when {
       presentationId != null -> forPresentation(slidesService, presentationId)
       copyId != null -> copyPresentation(driveService, slidesService, title, copyId)
