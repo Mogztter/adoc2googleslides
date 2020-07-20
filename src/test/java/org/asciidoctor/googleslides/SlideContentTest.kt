@@ -150,4 +150,16 @@ ASCII art to represent nodes and relationships""")
       ))
     )
   }
+
+  @Test
+  fun should_set_open_block_roles_on_table() {
+    val document = asciidoctor.load(SlideContentTest::class.java.getResource("/table.adoc").readText(), mapOf())
+    val node = document.findBy(mapOf("context" to ":open"))
+    val slideContent = SlideContent.from(node.first())
+    val tableContents = slideContent.contents.filterIsInstance<TableContent>()
+    assertThat(tableContents).hasSize(1)
+    assertThat(tableContents[0]).isInstanceOf(TableContent::class.java)
+    assertThat(tableContents[0].columns).isEqualTo(4)
+    assertThat(tableContents[0].roles).containsExactly("smaller")
+  }
 }

@@ -243,22 +243,60 @@ object GoogleSlidesGenerator {
     createTableRequest.elementProperties = pageElementProperties
     request.createTable = createTableRequest
     requests.add(request)
+    val fontSize = getFontSize(table.roles)
+    if (fontSize != null) {
+      val updateTableRowProperties = UpdateTableRowPropertiesRequest()
+      val tableRowProperties = TableRowProperties()
+      val size = Size()
+      val heightDimension = Dimension()
+      heightDimension.magnitude = fontSize.toDouble()
+      heightDimension.unit = "EMU"
+      size.height = heightDimension
+      tableRowProperties.minRowHeight = heightDimension
+      updateTableRowProperties.objectId = tableId
+      updateTableRowProperties.rowIndices = table.rows.indices.toList()
+      updateTableRowProperties.tableRowProperties = tableRowProperties
+      updateTableRowProperties.fields = "*"
+      val updateTableRowPropertiesRequest = Request()
+      updateTableRowPropertiesRequest.updateTableRowProperties = updateTableRowProperties
+      requests.add(updateTableRowPropertiesRequest)
+      val updatePageElementTransform = UpdatePageElementTransformRequest()
+      updatePageElementTransform.objectId = tableId
+      val transform = AffineTransform()
+      transform.scaleX = 1.0
+      transform.scaleY = 1.0
+      transform.translateY = 300000.0 // avoid overflow on slide title
+      transform.translateX = 0.0
+      transform.unit = "EMU"
+      updatePageElementTransform.transform = transform
+      updatePageElementTransform.applyMode = "RELATIVE"
+      val updatePageElementRequest = Request()
+      updatePageElementRequest.updatePageElementTransform = updatePageElementTransform
+      requests.add(updatePageElementRequest)
+    }
     table.rows.forEachIndexed { rowIndex, row ->
       row.cells.forEachIndexed { columnIndex, cell ->
         val cellRequest = Request()
         val insertTextRequest = InsertTextRequest()
-        insertTextRequest.text = cell.text
+        val text = if (cell.text.isBlank()) " " else cell.text
+        insertTextRequest.text = text
         insertTextRequest.objectId = tableId
         val tableCellLocation = TableCellLocation()
-        tableCellLocation.columnIndex =  columnIndex
+        tableCellLocation.columnIndex = columnIndex
         tableCellLocation.rowIndex = rowIndex
         insertTextRequest.cellLocation = tableCellLocation
         cellRequest.insertText = insertTextRequest
         requests.add(cellRequest)
-        if (cell.style == "header") {
+        if (cell.style == "header" || fontSize != null) {
           val updateTextStyleRequest = UpdateTextStyleRequest()
           val textStyle = TextStyle()
-          textStyle.bold = true
+          textStyle.bold = cell.style == "header"
+          if (fontSize != null) {
+            val fontSizeDimension = Dimension()
+            fontSizeDimension.magnitude = fontSize.toDouble()
+            fontSizeDimension.unit = "PT"
+            textStyle.fontSize = fontSizeDimension
+          }
           updateTextStyleRequest.style = textStyle
           updateTextStyleRequest.cellLocation = tableCellLocation
           updateTextStyleRequest.objectId = tableId
@@ -479,12 +517,7 @@ object GoogleSlidesGenerator {
       textRangeRequest.updateTextStyle = updateTextStyleRequest
       requests.add(textRangeRequest)
     }
-    val fontSize = textContent.fontSize
-      ?: if (textContent.roles.contains("small") || textContent.roles.contains("statement")) {
-        13
-      } else {
-        null
-      }
+    val fontSize = getFontSize(textContent.roles, textContent.fontSize)
     if (fontSize != null) {
       val updateTextStyleRequest = UpdateTextStyleRequest()
       val range = Range()
@@ -504,6 +537,17 @@ object GoogleSlidesGenerator {
       textRangeRequest.updateTextStyle = updateTextStyleRequest
       requests.add(textRangeRequest)
     }
+  }
+
+  private fun getFontSize(roles: List<String>, fontSize: Int? = null): Int? {
+    return fontSize
+      ?: if (roles.contains("small") || roles.contains("statement")) {
+        13
+      } else if (roles.contains("smaller")) {
+        9
+      } else {
+        null
+      }
   }
 
   private fun addCreateParagraphBullets(placeholderObjectId: String, listContent: ListContent, insertionIndex: Int = 0, requests: MutableList<Request>) {
