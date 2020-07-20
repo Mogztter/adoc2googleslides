@@ -265,7 +265,7 @@ object GoogleSlidesGenerator {
       val transform = AffineTransform()
       transform.scaleX = 1.0
       transform.scaleY = 1.0
-      transform.translateY = 300000.0 // avoid overflow on slide title
+      transform.translateY = 500000.0 // avoid overflow on slide title
       transform.translateX = 0.0
       transform.unit = "EMU"
       updatePageElementTransform.transform = transform
