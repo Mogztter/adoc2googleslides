@@ -542,7 +542,7 @@ object GoogleSlidesGenerator {
   private fun getFontSize(roles: List<String>, fontSize: Int? = null): Int? {
     return fontSize
       ?: if (roles.contains("small") || roles.contains("statement")) {
-        13
+        12
       } else if (roles.contains("smaller")) {
         9
       } else {
