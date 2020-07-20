@@ -89,11 +89,15 @@ object GoogleSlidesGenerator {
                       val lastBodyIndex = if (indexOfFirstImageBounded == slideBodyElements.size - 1) slideBodyElements.size - 2 else slideBodyElements.size - 1
                       textualContents.forEachIndexed { textualContentIndex, textualContent ->
                         val slideBodyElementIndex = if (textualContentIndex >= indexOfFirstImageBounded) textualContentIndex + 1 else textualContentIndex
-                        if (slideBodyElementIndex == lastBodyIndex) {
-                          val remainingTextualContents = textualContents.subList(textualContentIndex, textualContents.size)
-                          addContent(remainingTextualContents, googleSlidesPresentation, googleSlide, slideBodyElements[slideBodyElementIndex], requests)
-                        } else {
-                          addContent(listOf(textualContent), googleSlidesPresentation, googleSlide, slideBodyElements[slideBodyElementIndex], requests)
+                        when {
+                          slideBodyElementIndex > slideBodyElements.size - 1 -> {
+                            // no-op
+                          }
+                          slideBodyElementIndex == lastBodyIndex -> {
+                            val remainingTextualContents = textualContents.subList(textualContentIndex, textualContents.size)
+                            addContent(remainingTextualContents, googleSlidesPresentation, googleSlide, slideBodyElements[slideBodyElementIndex], requests)
+                          }
+                          else -> addContent(listOf(textualContent), googleSlidesPresentation, googleSlide, slideBodyElements[slideBodyElementIndex], requests)
                         }
                       }
                     }
@@ -101,11 +105,15 @@ object GoogleSlidesGenerator {
                     // stack remaining textual contents into the last body element
                     val lastBodyIndex = slideBodyElements.size - 1
                     slideContents.forEachIndexed { slideContentIndex, slideContent ->
-                      if (slideContentIndex == lastBodyIndex) {
-                        val remainingSlideContents = slideContents.subList(slideContentIndex, slideContents.size)
-                        addContent(remainingSlideContents, googleSlidesPresentation, googleSlide, slideBodyElements[slideContentIndex], requests)
-                      } else {
-                        addContent(listOf(slideContent), googleSlidesPresentation, googleSlide, slideBodyElements[slideContentIndex], requests)
+                      when {
+                        slideContentIndex > lastBodyIndex -> {
+                          // no-op
+                        }
+                        slideContentIndex == lastBodyIndex -> {
+                          val remainingSlideContents = slideContents.subList(slideContentIndex, slideContents.size)
+                          addContent(remainingSlideContents, googleSlidesPresentation, googleSlide, slideBodyElements[slideContentIndex], requests)
+                        }
+                        else -> addContent(listOf(slideContent), googleSlidesPresentation, googleSlide, slideBodyElements[slideContentIndex], requests)
                       }
                     }
                   }
