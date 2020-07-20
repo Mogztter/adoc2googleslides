@@ -75,19 +75,20 @@ object GoogleSlidesGenerator {
                 } else if (slideContents.size > slideBodyElements.size) {
                   val imageContents = slideContents.filterIsInstance<ImageContent>()
                   if (imageContents.isNotEmpty()) {
-                    val firstIndexOfImageContent = slideContents.indexOfFirst { it is ImageContent }
-                    addContent(imageContents, googleSlidesPresentation, googleSlide, slideBodyElements[firstIndexOfImageContent], requests)
+                    val indexOfFirstImage = slideContents.indexOfFirst { it is ImageContent }
+                    val indexOfFirstImageBounded = minOf(indexOfFirstImage, slideBodyElements.size - 1)
+                    addContent(imageContents, googleSlidesPresentation, googleSlide, slideBodyElements[indexOfFirstImageBounded], requests)
                     val textualContents = slideContents.filterNot { it is ImageContent }
                     if (textualContents.size < slideBodyElements.size) {
                       textualContents.forEachIndexed { textualContentIndex, textualContent ->
-                        val slideBodyElementIndex = if (textualContentIndex >= firstIndexOfImageContent) textualContentIndex + 1 else textualContentIndex
+                        val slideBodyElementIndex = if (textualContentIndex >= indexOfFirstImageBounded) textualContentIndex + 1 else textualContentIndex
                         addContent(listOf(textualContent), googleSlidesPresentation, googleSlide, slideBodyElements[slideBodyElementIndex], requests)
                       }
                     } else {
                       // stack remaining textual contents into the last body element
-                      val lastBodyIndex = if (firstIndexOfImageContent == slideBodyElements.size - 1) slideBodyElements.size - 2 else slideBodyElements.size - 1
+                      val lastBodyIndex = if (indexOfFirstImageBounded == slideBodyElements.size - 1) slideBodyElements.size - 2 else slideBodyElements.size - 1
                       textualContents.forEachIndexed { textualContentIndex, textualContent ->
-                        val slideBodyElementIndex = if (textualContentIndex >= firstIndexOfImageContent) textualContentIndex + 1 else textualContentIndex
+                        val slideBodyElementIndex = if (textualContentIndex >= indexOfFirstImageBounded) textualContentIndex + 1 else textualContentIndex
                         if (slideBodyElementIndex == lastBodyIndex) {
                           val remainingTextualContents = textualContents.subList(textualContentIndex, textualContents.size)
                           addContent(remainingTextualContents, googleSlidesPresentation, googleSlide, slideBodyElements[slideBodyElementIndex], requests)
