@@ -5,6 +5,7 @@ import org.asciidoctor.jruby.internal.RubyObjectWrapper
 import org.jruby.java.proxies.ConcreteJavaProxy
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Element
+import org.jsoup.nodes.Node
 import org.jsoup.nodes.TextNode
 import org.jsoup.parser.Parser
 import org.slf4j.LoggerFactory
@@ -270,45 +271,63 @@ sealed class SlideContent {
       }
       // diff! add a text range to replace the inline HTML with a style
       var currentIndex = initialIndex
+      val inlineTokens = mutableListOf<InlineToken>()
       for (htmlNode in body.childNodes()) {
-        val textToken = when (htmlNode) {
-          is TextNode -> {
-            val text = Parser.unescapeEntities(htmlNode.text(), true)
-            TextToken(text, "text")
-          }
-          is Element -> {
-            val text = Parser.unescapeEntities(htmlNode.text(), true)
-            when {
-              htmlNode.tagName() == "a" -> AnchorToken(text, htmlNode.attr("href"), "anchor")
-              htmlNode.tagName() == "span" -> {
-                val classNames = htmlNode.classNames()
-                when {
-                  classNames.contains("underline") -> TextToken(text, "underline")
-                  classNames.contains("big") -> TextToken(text, "big")
-                  else -> TextToken(text, "text")
-                }
-              }
-              else -> TextToken(text, htmlNode.tagName())
-            }
-          }
-          else -> throw IllegalArgumentException("Unable to parse: $htmlNode")
-        }
-        val length = textToken.text.length
-        result.add(TextRange(textToken, currentIndex, endIndex = currentIndex + length))
+        parseTextToken(htmlNode = htmlNode, agg = inlineTokens)
+      }
+      inlineTokens.map { inlineToken ->
+        val length = inlineToken.text.length
+        result.add(TextRange(inlineToken, currentIndex, endIndex = currentIndex + length))
         currentIndex += length
       }
       return result
+    }
+
+    private fun parseTextToken(htmlNode: Node, roles: List<String> = emptyList(), agg: MutableList<InlineToken> = mutableListOf()) {
+      when (htmlNode) {
+        is TextNode -> {
+          val text = Parser.unescapeEntities(htmlNode.text(), true)
+          agg.add(TextToken(text, roles))
+        }
+        is Element -> {
+          val text = Parser.unescapeEntities(htmlNode.text(), true)
+          when {
+            htmlNode.tagName() == "a" -> agg.add(AnchorToken(text, htmlNode.attr("href"), roles))
+            htmlNode.tagName() == "span" -> {
+              val childNodes = htmlNode.childNodes()
+              if (childNodes.isNotEmpty()) {
+                for (childNode in childNodes) {
+                  parseTextToken(childNode, roles + htmlNode.classNames().toList(), agg)
+                }
+              } else {
+                agg.add(TextToken(text, roles))
+              }
+            }
+            else -> {
+              val childNodes = htmlNode.childNodes()
+              if (childNodes.isNotEmpty()) {
+                for (childNode in childNodes) {
+                  parseTextToken(childNode, roles + listOf(htmlNode.tagName()), agg)
+                }
+              } else {
+                agg.add(TextToken(text, roles + listOf(htmlNode.tagName())))
+              }
+            }
+          }
+        }
+        else -> throw IllegalArgumentException("Unable to parse: $htmlNode")
+      }
     }
   }
 }
 
 data class ListingContent(val text: String, val fontSize: Int) : SlideContent() {
-  val ranges = listOf(TextRange(TextToken(text, "code"), 0, text.length))
+  val ranges = listOf(TextRange(TextToken(text, roles = listOf("code")), 0, text.length))
 }
 
-sealed class InlineToken(open val text: String, open val type: String)
-data class TextToken(override val text: String, override val type: String): InlineToken(text, type)
-data class AnchorToken(override val text: String, val target: String, override val type: String): InlineToken(text, type)
+sealed class InlineToken(open val text: String, open val roles: List<String>)
+data class TextToken(override val text: String, override val roles: List<String> = listOf()): InlineToken(text, roles)
+data class AnchorToken(override val text: String, val target: String, override val roles: List<String> = listOf()): InlineToken(text, roles)
 
 data class ImageContent(val url: String, val height: Int, val width: Int, val padding: Double = 0.0, val offsetX: Double = 0.0, val offsetY: Double = 0.0) : SlideContent()
 data class TextContent(val text: String, val ranges: List<TextRange> = emptyList(), val roles: List<String> = emptyList(), val fontSize: Int? = null) : SlideContent()

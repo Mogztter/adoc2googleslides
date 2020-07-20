@@ -22,16 +22,16 @@ Focuses on what, not how to retrieve
 Uses keywords such as MATCH, WHERE, CREATE
 Runs in the database server for the graph
 ASCII art to represent nodes and relationships""")
-    val textWithStyleRanges = listContent.ranges.filter { it.token.type != "text" }
+    val textWithStyleRanges = listContent.ranges.filter { it.token.roles.isNotEmpty() }
     assertThat(textWithStyleRanges).hasSize(5)
     val whatEmphasisTextRange = textWithStyleRanges[0]
     assertThat(whatEmphasisTextRange.token.text).isEqualTo("what")
-    assertThat(whatEmphasisTextRange.token.type).isEqualTo("em")
+    assertThat(whatEmphasisTextRange.token.roles).containsExactly("em")
     assertThat(whatEmphasisTextRange.startIndex).isEqualTo(38)
     assertThat(whatEmphasisTextRange.endIndex).isEqualTo(42)
     val matchCodeTextRange = textWithStyleRanges[1]
     assertThat(matchCodeTextRange.token.text).isEqualTo("MATCH")
-    assertThat(matchCodeTextRange.token.type).isEqualTo("code")
+    assertThat(matchCodeTextRange.token.roles).containsExactly("code")
     assertThat(matchCodeTextRange.startIndex).isEqualTo(86)
     assertThat(matchCodeTextRange.endIndex).isEqualTo(91)
   }
@@ -52,7 +52,7 @@ ASCII art to represent nodes and relationships""")
     val slideContent = SlideContent.from(document.findBy(mapOf("context" to ":paragraph")).first())
     assertThat(slideContent.contents).hasSize(1)
     assertThat((slideContent.contents[0] as TextContent).ranges).hasSize(2)
-    assertThat((slideContent.contents[0] as TextContent).ranges[1].token.type).isEqualTo("kbd")
+    assertThat((slideContent.contents[0] as TextContent).ranges[1].token.roles).containsExactly("kbd")
     assertThat((slideContent.contents[0] as TextContent).ranges[1].token.text).isEqualTo(":play 4.0-neo4j-modeling-exercises")
   }
 
@@ -161,5 +161,28 @@ ASCII art to represent nodes and relationships""")
     assertThat(tableContents[0]).isInstanceOf(TableContent::class.java)
     assertThat(tableContents[0].columns).isEqualTo(4)
     assertThat(tableContents[0].roles).containsExactly("smaller")
+  }
+
+  @Test
+  fun should_extract_cumulative_styles() {
+    val document = asciidoctor.load(SlideContentTest::class.java.getResource("/cumulative-styles.adoc").readText(), mapOf())
+    val nodes = document.findBy(mapOf("context" to ":paragraph"))
+    val firstTextContent = SlideContent.from(nodes[0]).contents[0] as TextContent
+    assertThat(firstTextContent.ranges).containsExactly(
+      TextRange(
+        TextToken(
+          text = "Identify connections between entities.",
+          roles = listOf("big", "strong")
+        ),
+        startIndex = 0,
+        endIndex = 38
+      )
+    )
+    val secondTextContent = SlideContent.from(nodes[1]).contents[0] as TextContent
+    assertThat(secondTextContent.ranges).containsExactly(
+      TextRange(token = TextToken(text = "This is "), startIndex = 0, endIndex = 8),
+      TextRange(token = TextToken(text = "awesome", roles = listOf("em", "strong")), startIndex = 8, endIndex = 15),
+      TextRange(token = TextToken(text = "!"), startIndex = 15, endIndex = 16)
+    )
   }
 }

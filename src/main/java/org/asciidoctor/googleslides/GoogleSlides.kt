@@ -463,8 +463,11 @@ object GoogleSlidesGenerator {
     requests.add(request)
     for (textRange in textRanges) {
       val textStyle = TextStyle()
-      val type = textRange.token.type
-      if (type == "code" || type == "kbd") {
+      val roles = textRange.token.roles
+      textStyle.bold = roles.contains("strong") || roles.contains("bold") || roles.contains("b")
+      textStyle.italic = roles.contains("em") || roles.contains("italic") || roles.contains("i")
+      textStyle.underline =  roles.contains("underline") || roles.contains("u") || textRange.token is AnchorToken
+      if (roles.contains("code") || roles.contains("kbd")) {
         val bgColor = OptionalColor()
         val bgOpaqueColor = OpaqueColor()
         bgOpaqueColor.themeColor = "LIGHT1"
@@ -476,16 +479,10 @@ object GoogleSlidesGenerator {
         fgColor.opaqueColor = fgOpaqueColor
         textStyle.foregroundColor = fgColor
         textStyle.fontFamily = "Roboto Mono"
-        textStyle.bold = true
-      } else if (type == "em") {
-        textStyle.italic = true
-      } else if (type == "strong" || type == "b") {
-        textStyle.bold = true
-      } else if (type == "anchor" && textRange.token is AnchorToken) {
+      } else if (textRange.token is AnchorToken) {
         val link = Link()
         link.url = textRange.token.target
         textStyle.link = link
-        textStyle.underline = true
         val fgColor = OptionalColor()
         val fgOpaqueColor = OpaqueColor()
         val rgbColor = RgbColor()
@@ -496,9 +493,7 @@ object GoogleSlidesGenerator {
         fgOpaqueColor.rgbColor = rgbColor
         fgColor.opaqueColor = fgOpaqueColor
         textStyle.foregroundColor = fgColor
-      } else if (type == "underline") {
-        textStyle.underline = true
-      } else if (type == "big") {
+      } else if (roles.contains("big")) {
         val fontSizeDimension = Dimension()
         fontSizeDimension.magnitude = 20.0
         fontSizeDimension.unit = "PT"

@@ -25,10 +25,10 @@ class SlideDeckTest {
             text = "Neo4j Developer Manual: https://neo4j.com/docs/cypher-manual/current/\nCypher RefCard: http://neo4j.com/docs/cypher-refcard/current/",
             type = "ulist",
             ranges = listOf(
-              TextRange(token = TextToken(text = "Neo4j Developer Manual: ", type = "text"), startIndex = 0, endIndex = 24),
-              TextRange(token = AnchorToken(text = "https://neo4j.com/docs/cypher-manual/current/", target = "https://neo4j.com/docs/cypher-manual/current/", type = "anchor"), startIndex = 24, endIndex = 69),
-              TextRange(token = TextToken(text = "Cypher RefCard: ", type = "text"), startIndex = 70, endIndex = 86),
-              TextRange(token = AnchorToken(text = "http://neo4j.com/docs/cypher-refcard/current/", target = "http://neo4j.com/docs/cypher-refcard/current/", type = "anchor"), startIndex = 86, endIndex = 131)
+              TextRange(token = TextToken(text = "Neo4j Developer Manual: "), startIndex = 0, endIndex = 24),
+              TextRange(token = AnchorToken(text = "https://neo4j.com/docs/cypher-manual/current/", target = "https://neo4j.com/docs/cypher-manual/current/"), startIndex = 24, endIndex = 69),
+              TextRange(token = TextToken(text = "Cypher RefCard: "), startIndex = 70, endIndex = 86),
+              TextRange(token = AnchorToken(text = "http://neo4j.com/docs/cypher-refcard/current/", target = "http://neo4j.com/docs/cypher-refcard/current/"), startIndex = 86, endIndex = 131)
             ),
             roles = listOf("notes")
           )
@@ -44,9 +44,9 @@ class SlideDeckTest {
           TextContent(
             text = "The most widely used Cypher clause is MATCH.",
             ranges = listOf(
-              TextRange(token = TextToken(text = "The most widely used Cypher clause is ", type = "text"), startIndex = 0, endIndex = 38),
-              TextRange(token = TextToken(text = "MATCH", type = "code"), startIndex = 38, endIndex = 43),
-              TextRange(token = TextToken(text = ".", type = "text"), startIndex = 43, endIndex = 44)
+              TextRange(token = TextToken(text = "The most widely used Cypher clause is "), startIndex = 0, endIndex = 38),
+              TextRange(token = TextToken(text = "MATCH", roles = listOf("code")), startIndex = 38, endIndex = 43),
+              TextRange(token = TextToken(text = "."), startIndex = 43, endIndex = 44)
             ),
             roles = listOf("notes")
           )
@@ -57,11 +57,11 @@ class SlideDeckTest {
           TextContent(
             text = "Notice that the Cypher keywords MATCH and RETURN are upper-case.",
             ranges = listOf(
-              TextRange(token = TextToken(text = "Notice that the Cypher keywords ", type = "text"), startIndex = 0, endIndex = 32),
-              TextRange(token = TextToken(text = "MATCH", type = "code"), startIndex = 32, endIndex = 37),
-              TextRange(token = TextToken(text = " and ", type = "text"), startIndex = 37, endIndex = 42),
-              TextRange(token = TextToken(text = "RETURN", type = "code"), startIndex = 42, endIndex = 48),
-              TextRange(token = TextToken(text = " are upper-case.", type = "text"), startIndex = 48, endIndex = 64)
+              TextRange(token = TextToken(text = "Notice that the Cypher keywords "), startIndex = 0, endIndex = 32),
+              TextRange(token = TextToken(text = "MATCH", roles = listOf("code")), startIndex = 32, endIndex = 37),
+              TextRange(token = TextToken(text = " and "), startIndex = 37, endIndex = 42),
+              TextRange(token = TextToken(text = "RETURN", roles = listOf("code")), startIndex = 42, endIndex = 48),
+              TextRange(token = TextToken(text = " are upper-case."), startIndex = 48, endIndex = 64)
             ),
             roles = listOf("notes")
           )
