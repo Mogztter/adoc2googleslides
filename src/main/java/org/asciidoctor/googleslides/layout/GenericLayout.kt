@@ -2,7 +2,6 @@ package org.asciidoctor.googleslides.layout
 
 import com.google.api.services.slides.v1.model.PageElement
 import com.google.api.services.slides.v1.model.Presentation
-import javafx.geometry.BoundingBox
 
 object GenericLayout {
 
@@ -28,3 +27,5 @@ object GenericLayout {
     )
   }
 }
+
+data class BoundingBox(val minX: Double, val minY: Double, val width: Double, val height: Double)
