@@ -179,7 +179,15 @@ sealed class SlideContent {
         return SlideContents(listOf(listContent), speakerNotesContents)
       }
       if (node.context == "image") {
-        val url = node.document.getAttribute("imagesdir") as String + node.getAttribute("target") as String
+        val imagesDirectory = node.document.getAttribute("imagesdir") as String?
+        val target = node.getAttribute("target") as String
+        val url = if (target.startsWith("http://") || target.startsWith("https://")) {
+          target
+        } else if (imagesDirectory != null) {
+          imagesDirectory + target
+        } else {
+          target
+        }
         if (url.startsWith("http://") || url.startsWith("https://")) {
           try {
             val bufferedImage = ImageIO.read(URL(url))
