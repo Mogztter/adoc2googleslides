@@ -161,4 +161,27 @@ class SlideDeckTest {
     assertThat(((slides[0] as TitleAndBodySlide).body.contents[1] as ListContent).text).isEqualTo("LOAD DATA\nIMPORT DATA\nLOAD CSV\nIMPORT CSV")
     assertThat(((slides[0] as TitleAndBodySlide).body.contents[1] as ListContent).ranges).hasSize(4)
   }
+
+  @Test
+  fun should_extract_nested_list() {
+    val document = asciidoctor.load(SlideContentTest::class.java.getResource("/nested-list.adoc").readText(), OptionsBuilder.options().backend("googleslides").asMap())
+    val slideDeck = SlideDeck.from(document)
+    val slides = slideDeck.slides
+    assertThat(slides).isNotEmpty
+    assertThat(slides).hasSize(1)
+    assertThat(slides[0]).isInstanceOf(TitleAndBodySlide::class.java)
+    assertThat((slides[0] as TitleAndBodySlide).body.contents).hasSize(1)
+    assertThat((slides[0] as TitleAndBodySlide).body.contents[0]).isInstanceOf(ListContent::class.java)
+    val listContent = (slides[0] as TitleAndBodySlide).body.contents[0] as ListContent
+    assertThat(listContent.ranges).containsExactly(
+      TextRange(token = TextToken(text = "\u200DM"), startIndex = 15, endIndex = 17),
+      TextRange(token = TextToken(text = "aze", roles = listOf("em")), startIndex = 17, endIndex = 20),
+      TextRange(token = TextToken(text = " heart"), startIndex = 20, endIndex = 26),
+      TextRange(token = TextToken(text = "\u200D\u200DReflection "), startIndex = 27, endIndex = 40),
+      TextRange(token = TextToken(text = "pool", roles = listOf("strong")), startIndex = 40, endIndex = 44),
+      TextRange(token = TextToken(text = "\u200DSecret "), startIndex = 45, endIndex = 53),
+      TextRange(token = TextToken(text = "exit", roles = listOf("code")), startIndex = 53, endIndex = 57)
+    )
+    assertThat(listContent.text).isEqualTo("West wood maze\n\tMaze heart\n\t\tReflection pool\n\tSecret exit\nUntracked file in git repository")
+  }
 }

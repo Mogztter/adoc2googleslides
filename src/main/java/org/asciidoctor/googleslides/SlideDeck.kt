@@ -139,8 +139,7 @@ sealed class SlideContent {
       if (node is AsciidoctorList) {
         val textRanges = mutableListOf<TextRange>()
         var currentIndex = 0
-        for (item in node.items) {
-          val htmlText = (item as ListItem).text
+        for (htmlText in extractHtmlTextFromList(node))  {
           val body = Jsoup.parseBodyFragment(htmlText).body()
           textRanges.addAll(parseHtmlText(htmlText, body, currentIndex))
           // adds +1 because each line will be join with \n
@@ -165,13 +164,9 @@ sealed class SlideContent {
           ""
         }
         val speakerNotesContents = listOf(SlideContents(listOf(TextContent(speakerNotes))))
-        val rawText = node.items.joinToString("\n") {
-          val text = (it as ListItem).text
-          val doc = Jsoup.parseBodyFragment(text)
-          Parser.unescapeEntities(doc.body().text(), true)
-        }
+        val textItems = extractRawTextFromList(node)
         val listContent = ListContent(
-          text = rawText,
+          text = textItems.joinToString("\n"),
           type = type,
           ranges = textRanges,
           roles = node.roles + node.parent.roles
@@ -234,7 +229,7 @@ sealed class SlideContent {
             roles = node.roles + node.parent.roles
           )))
         } else {
-          logger.warn("Complex admonition are not supported, ignoring.")
+          logger.warn("Complex admonitions are not supported, ignoring.")
           SlideContents(listOf())
         }
       }
@@ -264,6 +259,26 @@ sealed class SlideContent {
       }
     }
 
+    private fun extractHtmlTextFromList(list: AsciidoctorList, depth: Int = 0): List<String> {
+      return list.items.flatMap { listItem ->
+        val text = (listItem as ListItem).text
+        // adds a zero-width joiner to emulate a \t
+        listOf("\u200D".repeat(depth) + text) + listItem.blocks.filterIsInstance<AsciidoctorList>().flatMap {
+          extractHtmlTextFromList(it, depth + 1)
+        }
+      }
+    }
+
+    private fun extractRawTextFromList(list: AsciidoctorList, depth: Int = 0): List<String> {
+      return list.items.flatMap { listItem ->
+        val text = (listItem as ListItem).text
+        val doc = Jsoup.parseBodyFragment(text)
+        listOf("\t".repeat(depth) + Parser.unescapeEntities(doc.body().text(), true)) + listItem.blocks.filterIsInstance<AsciidoctorList>().flatMap {
+          extractRawTextFromList(it, depth + 1)
+        }
+      }
+    }
+
     private fun fromAsciidoctorRow(row: Row, style: String): TableRow {
       val cells = row.cells.map { cell ->
         TableCell(cell.text, style)
@@ -273,12 +288,12 @@ sealed class SlideContent {
 
     private fun parseHtmlText(htmlText: String, body: Element, initialIndex: Int = 0): List<TextRange> {
       val result = mutableListOf<TextRange>()
+      // diff! add a text range to replace the inline HTML with a style
+      var currentIndex = initialIndex
       val textWithoutHTML = body.text()
       if (textWithoutHTML == htmlText) {
         return result
       }
-      // diff! add a text range to replace the inline HTML with a style
-      var currentIndex = initialIndex
       val inlineTokens = mutableListOf<InlineToken>()
       for (htmlNode in body.childNodes()) {
         parseTextToken(htmlNode = htmlNode, agg = inlineTokens)
@@ -334,8 +349,8 @@ data class ListingContent(val text: String, val fontSize: Int) : SlideContent() 
 }
 
 sealed class InlineToken(open val text: String, open val roles: List<String>)
-data class TextToken(override val text: String, override val roles: List<String> = listOf()): InlineToken(text, roles)
-data class AnchorToken(override val text: String, val target: String, override val roles: List<String> = listOf()): InlineToken(text, roles)
+data class TextToken(override val text: String, override val roles: List<String> = listOf()) : InlineToken(text, roles)
+data class AnchorToken(override val text: String, val target: String, override val roles: List<String> = listOf()) : InlineToken(text, roles)
 
 data class ImageContent(val url: String, val height: Int, val width: Int, val padding: Double = 0.0, val offsetX: Double = 0.0, val offsetY: Double = 0.0) : SlideContent()
 data class TextContent(val text: String, val ranges: List<TextRange> = emptyList(), val roles: List<String> = emptyList(), val fontSize: Int? = null) : SlideContent()
