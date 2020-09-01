@@ -52,7 +52,6 @@ asciidoctor {
 +
  $ git tag vx.y.z && git push origin master --tags
 +
-. Create the new version on https://bintray.com/mogztter/io.github.mogztter/asciidoctor-googleslides
 . Upload the artifacts to bintray:
 +
  $ ./gradlew bintrayUpload -PbintrayUser=mogztter -PbintrayKey=secret
