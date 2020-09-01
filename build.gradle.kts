@@ -41,7 +41,7 @@ repositories {
 }
 
 val dryRunPublications = (project.findProperty("dryRun") as String?)?.toBoolean() ?: false
-val (buildDateOnly, buildTimeOnly) = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSZ")
+val (buildDateOnly, buildTimeOnly) = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSZZ")
   .format(ZonedDateTime.now(ZoneOffset.UTC))
   .split(" ")
 
@@ -119,7 +119,7 @@ bintray {
     version.apply {
       name = artifactVersion
       desc = pomDesc
-      released = ZonedDateTime.now(ZoneOffset.UTC).toString()
+      released = ZonedDateTime.now(ZoneOffset.UTC).format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSZZ"))
       vcsTag = artifactVersion
     }
   }
