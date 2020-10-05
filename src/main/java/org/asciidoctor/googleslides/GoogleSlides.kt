@@ -391,13 +391,15 @@ object GoogleSlidesGenerator {
     contents.filterNot { it is ImageContent || it is TableContent }.forEachIndexed { index, content ->
       when (content) {
         is TextContent -> {
-          val text = if (index < contents.size) {
-            content.text + "\n"
-          } else {
-            content.text
+          if (content.text.isNotEmpty()) {
+            val text = if (index < contents.size) {
+              content.text + "\n"
+            } else {
+              content.text
+            }
+            addInsertTextRequest(placeholderId, TextContent(text, content.ranges, content.roles, content.fontSize), currentIndex, requests)
+            currentIndex += text.length
           }
-          addInsertTextRequest(placeholderId, TextContent(text, content.ranges, content.roles, content.fontSize), currentIndex, requests)
-          currentIndex += text.length
         }
         is ListContent -> {
           val text = if (index < contents.size) {

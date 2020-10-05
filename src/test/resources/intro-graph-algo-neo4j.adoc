@@ -1,0 +1,28 @@
+= Introduction to Graph Algorithms with Neo4j 4.0
+
+== Course outline:
+
+. Overview of graph algorithms
+. Introduction to the Graph Data Science Library
+. Environment setup
+. Graph algorithms workflow
+. Memory requirements
+. Community Detection algorithms
+. Centrality algorithms
+. Similarity algorithms
+. Practical application of graph algorithms
+. Additional information
+
+[.notes]
+--
+*Overview of graph algorithms*:
+
+[square]
+* Graph analytics and algorithms
+* Graph structure
+** Propagation pathways
+** Flow and dynamics
+** Group resiliency
+* Types of graphs
+* Types of graph algorithms
+--

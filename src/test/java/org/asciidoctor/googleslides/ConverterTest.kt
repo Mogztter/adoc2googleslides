@@ -7,7 +7,7 @@ import java.io.File
 import java.nio.file.Paths
 import kotlin.test.*
 
-//@Ignore("Integration tests")
+@Ignore("Integration tests")
 class ConverterTest {
 
   private val asciidoctor = Asciidoctor.Factory.create()
@@ -70,6 +70,30 @@ class ConverterTest {
   @Test
   fun should_create_nested_list() {
     val file = File(ConverterTest::class.java.getResource("/nested-list.adoc").toURI())
+    asciidoctor.convertFile(file, OptionsBuilder.options()
+      .backend("googleslides")
+      .attributes(
+        AttributesBuilder.attributes()
+          .attribute("google-slides-copy-id", masterPresentationId)
+          .attribute("google-slides-credentials-path", credentialsPath)
+      ))
+  }
+
+  @Test
+  fun should_create_how_queries_work_in_neo4j_presentation() {
+    val file = File(ConverterTest::class.java.getResource("/how-queries-work-in-neo4j.adoc").toURI())
+    asciidoctor.convertFile(file, OptionsBuilder.options()
+      .backend("googleslides")
+      .attributes(
+        AttributesBuilder.attributes()
+          .attribute("google-slides-copy-id", masterPresentationId)
+          .attribute("google-slides-credentials-path", credentialsPath)
+      ))
+  }
+
+  @Test
+  fun should_create_intro_graph_algo_neo4j_presentation() {
+    val file = File(ConverterTest::class.java.getResource("/intro-graph-algo-neo4j.adoc").toURI())
     asciidoctor.convertFile(file, OptionsBuilder.options()
       .backend("googleslides")
       .attributes(
