@@ -273,7 +273,7 @@ sealed class SlideContent {
       return list.items.flatMap { listItem ->
         val text = (listItem as ListItem).text
         val doc = Jsoup.parseBodyFragment(text)
-        listOf("\t".repeat(depth) + Parser.unescapeEntities(doc.body().text(), true)) + listItem.blocks.filterIsInstance<AsciidoctorList>().flatMap {
+        listOf("\t".repeat(depth) + Parser.unescapeEntities(doc.body().text(), true).replace("\t", " ")) + listItem.blocks.filterIsInstance<AsciidoctorList>().flatMap {
           extractRawTextFromList(it, depth + 1)
         }
       }

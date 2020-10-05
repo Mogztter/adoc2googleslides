@@ -409,7 +409,8 @@ object GoogleSlidesGenerator {
           }
           addInsertTextRequest(placeholderId, TextContent(text, content.ranges, content.roles), currentIndex, requests)
           addCreateParagraphBullets(placeholderId, ListContent(text, content.type, content.ranges, content.roles), currentIndex, requests)
-          currentIndex += text.length
+          // remove leading \t added during parsing
+          currentIndex += text.replace(Regex("^[\t]+", RegexOption.MULTILINE), "").length
         }
         is ListingContent -> {
           val text = if (index < contents.size) {
