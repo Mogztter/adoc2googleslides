@@ -150,6 +150,28 @@ class SlideDeckTest {
   }
 
   @Test
+  fun should_flatten_real_world_presentation() {
+    val file = File(SlideContentTest::class.java.getResource("/intro-graph-algo-neo4j.adoc").toURI())
+    val document = asciidoctor.loadFile(file, OptionsBuilder.options().backend("googleslides").asMap())
+    val slideDeck = SlideDeck.from(document)
+    val slides = slideDeck.slides
+    assertThat(slides).isNotEmpty
+    assertThat(slides).hasSize(9)
+    assertThat(slides.map { it.title }).containsExactly(
+      "Course outline",
+      "Overview of Graph Algorithms",
+      "Graph Analytics and Algorithms",
+      "When not to use graphs",
+      "When not to use graph algorithms (2)",
+      "Graph Structure",
+      "Random network",
+      "Structured network",
+      "Summary"
+    )
+
+  }
+
+  @Test
   fun should_extract_interactive_checklist() {
     val document = asciidoctor.load(SlideContentTest::class.java.getResource("/interactive-checklist.adoc").readText(), OptionsBuilder.options().backend("googleslides").asMap())
     val slideDeck = SlideDeck.from(document)

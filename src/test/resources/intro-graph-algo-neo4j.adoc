@@ -1,15 +1,9 @@
 = Introduction to Graph Algorithms with Neo4j 4.0
 
-[.notes]
---
-Graph algorithms are used to compute metrics for graphs, nodes, or relationships.
-They can provide insights on relevant entities (centralities, ranking) in the graph or inherent structures such as communities (community-detection, graph-partitioning, clustering).
---
-
 [.statement]
 In this course you will learn how to use Neo4j's Graph Data Science library to enhance your graph-based applications that require analysis.
 
-== Course outline:
+== Course outline
 
 . Overview of graph algorithms
 . Introduction to the Graph Data Science Library
@@ -22,82 +16,45 @@ In this course you will learn how to use Neo4j's Graph Data Science library to e
 . Practical application of graph algorithms
 . Additional information
 
-[.notes]
---
-*Overview of graph algorithms*:
+[.title.slide-start-title]
+== Overview of Graph Algorithms
+
+Some text.
+
+=== Graph Analytics and Algorithms
+
+Some text.
+
+==== When not to use graphs
+
+Note when not to use graph and graph algorithms!
 
 [square]
-* Graph analytics and algorithms
-* Graph structure
-** Propagation pathways
-** Flow and dynamics
-** Group resiliency
-* Types of graphs
-* Types of graph algorithms
+* Questions with just a few connections or flat (not nested).
+* Questions solved with specific, well-crafted queries.
+* Simple statistical results (sums, averages, ratios).
+** Example: Regular reporting based on defined criteria and well-organized data:
 
-*Introduction to the Graph Data Science Library*:
+==== When not to use graph algorithms (2)
 
-[square]
-* Neo4j support for graph analytics and visualization
-* The Neo4j Graph Data Science Library
+Image from https://www.weather-atlas.com/en/slovenia/ljubljana-climate.
 
-*Environment setup*:
+Average rainfall calculation is an example of a simple statistical result, where no graph analytics is required.
 
-[square]
-* Prepare your environment for the hands-on exercises
-* Datasets used for this course
+=== Graph Structure
 
-*Graph algorithms workflow*:
+A graph consists of nodes (also called vertices), which are connected by relationships (also called edges or links).
 
-[square]
-* How graph algorithms work
-* Native projection
-* Cypher projection
-* Graph management
-* Using graph algorithms
-* Hands-on exercise
+[.half-column]
+==== Random network
 
-*Memory requirements estimation*:
+In a completely average distribution of relationships per node, a random network is formed with no hierarchies.
+All nodes have the same probability of being attached to any other node.
+However, average distribution is only valid when we are dealing with a set of independent observations.
 
-[square]
-* Estimating memory required
-* Hands-on memory estimation
+[.half-column]
+==== Structured network
 
-*Community detection algorithms*:
+=== Summary
 
-[square]
-* Weakly Connected Components
-* Label Propagation
-* Louvain Modularity
-* Triangle Count
-* Local Clustering Coefficient
-* Hands-on exercises
-
-*Centrality algorithms*:
-
-[square]
-* PageRank
-* Betweenness Centrality
-* Hands-on exercises
-
-*Similarity algorithms*:
-
-[square]
-* Node Similarity
-* Hands-on exercise
-
-*Practical application of graph algorithms*:
-
-[square]
-* Workflow overview
-* Hands-on analysis
-
-*Additional information*:
-
-[square]
-* Labs algorithms
-* Types of graphs
-* Seed parameters
-* Using Neo4j Causal Clusters
-* Common concerns
---
+You have learned a lot about graphs, their structure, and how graph algorithms are applied to solve real-world problems.

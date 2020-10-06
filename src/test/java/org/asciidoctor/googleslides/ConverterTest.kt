@@ -93,6 +93,18 @@ class ConverterTest {
 
   @Test
   fun should_create_intro_graph_algo_neo4j_presentation() {
+    val file = File(ConverterTest::class.java.getResource("/nested-lists.adoc").toURI())
+    asciidoctor.convertFile(file, OptionsBuilder.options()
+      .backend("googleslides")
+      .attributes(
+        AttributesBuilder.attributes()
+          .attribute("google-slides-copy-id", masterPresentationId)
+          .attribute("google-slides-credentials-path", credentialsPath)
+      ))
+  }
+
+  @Test
+  fun should_create_intro_graph_algo_neo4j_in_the_right_order_presentation() {
     val file = File(ConverterTest::class.java.getResource("/intro-graph-algo-neo4j.adoc").toURI())
     asciidoctor.convertFile(file, OptionsBuilder.options()
       .backend("googleslides")

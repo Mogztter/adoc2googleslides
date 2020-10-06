@@ -113,6 +113,12 @@ data class SlideDeck(val title: String, val slides: List<Slide>) {
     }
 
     private fun flattenDocument(document: Document) {
+      val hasPreamble = document.findBy(mapOf("context" to ":preamble")).isNotEmpty()
+      val offset = if (hasPreamble) {
+        2
+      } else {
+        1
+      }
       document.findBy(mapOf("context" to ":section")).filter {
         it.level > 1
       }.reversed().forEach { section ->
@@ -124,7 +130,7 @@ data class SlideDeck(val title: String, val slides: List<Slide>) {
         val rubyBlock = section as RubyObjectWrapper
         val ruby = rubyBlock.rubyObject.runtime
         rubyBlock.setRubyProperty("@level", ruby.newFixnum(1))
-        document.blocks.add(parentSection.index + 1, section)
+        document.blocks.add(parentSection.index + offset, section)
       }
     }
   }
