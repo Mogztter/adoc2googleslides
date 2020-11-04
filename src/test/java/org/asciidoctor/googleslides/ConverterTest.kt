@@ -114,4 +114,16 @@ class ConverterTest {
           .attribute("google-slides-credentials-path", credentialsPath)
       ))
   }
+
+  @Test
+  fun should_create_inline_break_content() {
+    val file = File(ConverterTest::class.java.getResource("/inline-break.adoc").toURI())
+    asciidoctor.convertFile(file, OptionsBuilder.options()
+      .backend("googleslides")
+      .attributes(
+        AttributesBuilder.attributes()
+          .attribute("google-slides-copy-id", masterPresentationId)
+          .attribute("google-slides-credentials-path", credentialsPath)
+      ))
+  }
 }

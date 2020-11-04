@@ -1,0 +1,11 @@
+= Inline break
+
+== About this course
+
+Welcome to this course on November 4th +
+an *introduction to Graph Data Modeling for Neo4j*. +
+_Please_ let me know if you cannot see my screen?
+
+[%hardbreaks]
+Ruby is red.
+Java is black.

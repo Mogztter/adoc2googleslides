@@ -185,4 +185,87 @@ ASCII art to represent nodes and relationships""")
       TextRange(token = TextToken(text = "!"), startIndex = 15, endIndex = 16)
     )
   }
+
+  @Test
+  fun should_extract_inline_break() {
+    val document = asciidoctor.load(SlideContentTest::class.java.getResource("/inline-break.adoc").readText(), mapOf("backend" to "googleslides"))
+    val nodes = document.findBy(mapOf("context" to ":paragraph"))
+    val firstTextContent = SlideContent.from(nodes[0]).contents[0] as TextContent
+    assertThat(firstTextContent.text).isEqualTo("""Welcome to this course on November 4th
+      |an introduction to Graph Data Modeling for Neo4j.
+      |Please let me know if you cannot see my screen?
+    """.trimMargin())
+    assertThat(firstTextContent.ranges).containsExactly(
+      TextRange(
+        TextToken(
+          text = "Welcome to this course on November 4th",
+          roles = listOf()
+        ),
+        startIndex = 0,
+        endIndex = 38
+      ),
+      TextRange(
+        TextToken(
+          text = "\n",
+          roles = listOf()
+        ),
+        startIndex = 38,
+        endIndex = 39
+      ),
+      TextRange(
+        TextToken(
+          text = "an ",
+          roles = listOf()
+        ),
+        startIndex = 39,
+        endIndex = 42
+      ),
+      TextRange(
+        TextToken(
+          text = "introduction to Graph Data Modeling for Neo4j",
+          roles = listOf("strong")
+        ),
+        startIndex = 42,
+        endIndex = 87
+      ),
+      TextRange(
+        TextToken(
+          text = ".",
+          roles = listOf()
+        ),
+        startIndex = 87,
+        endIndex = 88
+      ),
+      TextRange(
+        TextToken(
+          text = "\n",
+          roles = listOf()
+        ),
+        startIndex = 88,
+        endIndex = 89
+      ),
+      TextRange(
+        TextToken(
+          text = "Please",
+          roles = listOf("em")
+        ),
+        startIndex = 89,
+        endIndex = 95
+      ),
+      TextRange(
+        TextToken(
+          text = " let me know if you cannot see my screen?",
+          roles = listOf()
+        ),
+        startIndex = 95,
+        endIndex = 136
+      )
+    )
+    val secondTextContent = SlideContent.from(nodes[1]).contents[0] as TextContent
+    assertThat(secondTextContent.ranges).containsExactly(
+      TextRange(token = TextToken(text = "Ruby is red.", roles = listOf()), startIndex = 0, endIndex = 12),
+      TextRange(token = TextToken(text = "\n", roles = listOf()), startIndex = 12, endIndex = 13),
+      TextRange(token = TextToken(text = "Java is black.", roles = listOf()), startIndex = 13, endIndex = 27)
+    )
+  }
 }

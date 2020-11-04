@@ -397,7 +397,7 @@ object GoogleSlidesGenerator {
             } else {
               content.text
             }
-            addInsertTextRequest(placeholderId, TextContent(text, content.ranges, content.roles, content.fontSize), currentIndex, requests)
+            addInsertTextRequest(placeholderId, TextContent(text, content.ranges, content.roles, content.fontSize, content.spaceBelow), currentIndex, requests)
             currentIndex += text.length
           }
         }
@@ -534,6 +534,29 @@ object GoogleSlidesGenerator {
       val textRangeRequest = Request()
       textRangeRequest.updateTextStyle = updateTextStyleRequest
       requests.add(textRangeRequest)
+    }
+    val spaceBelow = textContent.spaceBelow
+    if (spaceBelow != null) {
+      val lastLineBreakIndex = text.trim().lastIndexOf("\n")
+      if (lastLineBreakIndex > 1) {
+        val updateParagraphStyleRequest = UpdateParagraphStyleRequest()
+        val range = Range()
+        range.type = "FIXED_RANGE"
+        range.startIndex = insertionIndex
+        range.endIndex = insertionIndex + lastLineBreakIndex - 1
+        updateParagraphStyleRequest.textRange = range
+        val paragraphStyle = ParagraphStyle()
+        val dimension = Dimension()
+        dimension.magnitude = 0.0
+        dimension.unit = "PT"
+        paragraphStyle.spaceBelow = dimension
+        updateParagraphStyleRequest.style = paragraphStyle
+        updateParagraphStyleRequest.objectId = placeholderObjectId
+        updateParagraphStyleRequest.fields = "*"
+        val paragraphRangeRequest = Request()
+        paragraphRangeRequest.updateParagraphStyle = updateParagraphStyleRequest
+        requests.add(paragraphRangeRequest)
+      }
     }
   }
 

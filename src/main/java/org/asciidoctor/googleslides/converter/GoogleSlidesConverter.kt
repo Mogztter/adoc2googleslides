@@ -65,6 +65,9 @@ class GoogleSlidesConverter(backend: String?, private val opts: Map<String?, Any
       "inline_anchor" -> {
         """<a href="${(node as PhraseNodeImpl).target}">${node.text}</a>"""
       }
+      "inline_break" -> {
+        "${(node as PhraseNodeImpl).text}<br/>"
+      }
       else -> {
         if (node is StructuralNode) {
           SlideContent.from(node)

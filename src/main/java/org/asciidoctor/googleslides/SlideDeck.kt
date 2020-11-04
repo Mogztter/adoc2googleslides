@@ -254,10 +254,21 @@ sealed class SlideContent {
         val body = Jsoup.parseBodyFragment(content).body()
         val textRanges = parseHtmlText(content, body)
         val text = Parser.unescapeEntities(body.text(), true)
+        // "unescapeEntities" will remove line breaks with spaces,
+        // since we want to preserve explicit line breaks,
+        // we (re)add line break characters.
+        val sb = StringBuffer(text)
+        val hasLineBreaks = textRanges.find { it.token.text == "\n" } != null
+        textRanges
+          .filter { it.token.text == "\n" }
+          .forEach {
+            sb.replace(it.startIndex, it.endIndex, "\n")
+          }
         SlideContents(listOf(TextContent(
-          text = text,
+          text = sb.toString(),
           ranges = textRanges,
-          roles = node.roles + node.parent.roles
+          roles = node.roles + node.parent.roles,
+          spaceBelow = if (hasLineBreaks) 0.0 else null
         )))
       } else {
         logger.warn("Unable to retrieve the content for ${node.context}, ignoring.")
@@ -316,7 +327,15 @@ sealed class SlideContent {
       when (htmlNode) {
         is TextNode -> {
           val text = Parser.unescapeEntities(htmlNode.text(), true)
-          agg.add(TextToken(text, roles))
+          val previousToken = agg.lastOrNull()
+          val currentText = if (previousToken != null && previousToken.text == "\n") {
+            text.removePrefix(" ")
+          } else {
+            text
+          }
+          if (currentText.isNotEmpty()) {
+            agg.add(TextToken(currentText, roles))
+          }
         }
         is Element -> {
           val text = Parser.unescapeEntities(htmlNode.text(), true)
@@ -331,6 +350,9 @@ sealed class SlideContent {
               } else {
                 agg.add(TextToken(text, roles))
               }
+            }
+            htmlNode.tagName() == "br" -> {
+              agg.add(TextToken("\n"))
             }
             else -> {
               val childNodes = htmlNode.childNodes()
@@ -359,7 +381,7 @@ data class TextToken(override val text: String, override val roles: List<String>
 data class AnchorToken(override val text: String, val target: String, override val roles: List<String> = listOf()) : InlineToken(text, roles)
 
 data class ImageContent(val url: String, val height: Int, val width: Int, val padding: Double = 0.0, val offsetX: Double = 0.0, val offsetY: Double = 0.0) : SlideContent()
-data class TextContent(val text: String, val ranges: List<TextRange> = emptyList(), val roles: List<String> = emptyList(), val fontSize: Int? = null) : SlideContent()
+data class TextContent(val text: String, val ranges: List<TextRange> = emptyList(), val roles: List<String> = emptyList(), val fontSize: Int? = null, val spaceBelow: Double? = null) : SlideContent()
 data class ListContent(val text: String, val type: String, val ranges: List<TextRange> = emptyList(), val roles: List<String> = emptyList()) : SlideContent()
 data class TextRange(val token: InlineToken, val startIndex: Int, val endIndex: Int)
 data class SlideContents(val contents: List<SlideContent>, val speakerNotes: List<SlideContents> = emptyList())
